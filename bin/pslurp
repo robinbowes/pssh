@@ -66,7 +66,7 @@ def parsecmdline(argv):
               "user" : None, "par" : _DEFAULT_PARALLELISM, "outdir" : None,
               "errdir" : None, "timeout" : _DEFAULT_TIMEOUT, "options" : None }
     read_envvars(flags)
-    flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user    
+    if not flags["user"]: flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
         if o in ("-r", "--recursive"):

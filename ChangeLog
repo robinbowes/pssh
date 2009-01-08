@@ -1,3 +1,7 @@
+2006-06-18  Brent N. Chun <bnc at theether.org>
+	* Version 1.2.2
+	  - Added patch from Dan Silverstein (dans@pch.net) to fix
+	    parsecmdline bug.
 2005-12-31  Brent N. Chun <bnc at theether.org>
 	* Version 1.2.1
 	  - Changed sys.path so pssh can run without RPM

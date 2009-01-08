@@ -1,9 +1,9 @@
 Summary: Parallel SSH tools
 Name: pssh
-Version: 1.2.1
+Version: 1.2.2
 Release: 1
 Group: system
-Source: pssh-1.2.1.tar.gz 
+Source: pssh-1.2.2.tar.gz 
 License: GPL
 Requires: openssh
 Requires: python2
