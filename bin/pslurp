@@ -10,7 +10,7 @@
 #
 # Created: 18 November 2003
 #
-# $Id: pslurp 361 2008-08-27 10:41:14Z bnc $
+# $Id: pslurp 400 2008-10-12 11:48:28Z bnc $
 #
 import fcntl
 import getopt
@@ -25,7 +25,6 @@ import threading
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
 sys.path.append("%s" % basedir)
     
-import psshlib
 from psshlib import psshutil
 from psshlib.basethread import BaseThread
     
@@ -78,17 +77,35 @@ def read_envvars(flags):
     
 def parsecmdline(argv):
     shortopts = "L:h:l:p:o:e:t:O:rv"
-    longopts = [ "localdir=", "hosts=", "user=", "par=", "outdir=",
-             "errdir=", "timeout=", "options=",
-             "recursive", "verbose" ]
-    flags = { "localdir" : None, "hosts" : None,
-              "user" : None, "par" : _DEFAULT_PARALLELISM,
-              "outdir" : None, "errdir" : None,
-              "timeout" : _DEFAULT_TIMEOUT, "options" : None,
-              "recursive" : None, "verbose" : None }
+    longopts = [ "localdir=",
+                 "hosts=",
+                 "user=",
+                 "par=",
+                 "outdir=",
+                 "errdir=",
+                 "timeout=",
+                 "options=",
+                 "recursive",
+                 "verbose" ]
+    flags = { "localdir" : None,
+              "hosts" : None,
+              "user" : None,
+              "par" : _DEFAULT_PARALLELISM,
+              "outdir" : None,
+              "errdir" : None,
+              "timeout" : _DEFAULT_TIMEOUT,
+              "options" : None,
+              "recursive" : None,
+              "verbose" : None }
     read_envvars(flags)
-    if not flags["user"]: flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
-    opts, args = getopt.getopt(argv[1:], shortopts, longopts)
+    if not flags["user"]:
+        flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
+    try:
+        opts, args = getopt.getopt(argv[1:], shortopts, longopts)
+    except getopt.GetoptError, e:
+        print "Error: %s\n" % str(e)
+        print_usage()
+        sys.exit(3)        
     for o, v in opts:
         if o in ("-L", "--localdir"):
             flags["localdir"] = v
@@ -128,9 +145,9 @@ def do_pslurp(hosts, ports, users, remote, local, flags):
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
         os.makedirs(flags["errdir"])
     for host in hosts:
-        dir = "%s/%s" % (flags["localdir"], host)
-        if not os.path.exists(dir):
-            os.mkdir(dir)
+        dirname = "%s/%s" % (flags["localdir"], host)
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
@@ -141,7 +158,7 @@ def do_pslurp(hosts, ports, users, remote, local, flags):
                   (flags["options"], ports[i], users[i], hosts[i],
                    remote, localpath)
         elif flags["options"] and not flags["recursive"]:
-            cmd = "scp -o \"%s\" -qC -P %d %s@%s:%s" % \
+            cmd = "scp -o \"%s\" -qC -P %d %s@%s:%s %s" % \
                   (flags["options"], ports[i], users[i], hosts[i],
                    remote, localpath)
         elif not flags["options"] and flags["recursive"]:

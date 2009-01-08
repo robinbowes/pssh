@@ -1,12 +1,3 @@
-* Add '=' to longopts e.g., "hosts="
-* Add retries
-* Look at os.kill with normal child.pid (no -), *maybe* need -
-  - e.g., transients on PlanetLab
-* Change output file format
-  - Name by IP and port (to handle SSH tunnels, many localhost conns)
-* Support an SSH tunnel node
-  - Before || ssh, set up tunnels -L .. -L ... -L .. (then use to tunnel)
-* Fix up usage
-  - Some options have args, some options don't have args (see SHARP svm)
-* Fix up timeouts on prsync (doesn't quite work, doesn't look like
-  processess are all getting killed, parent/child rsync, ssh?)
+-*- text -*-
+
+

@@ -1,3 +1,18 @@
+2008-10-12 Brent N. Chun <bnc at theether.org>
+	* Version 1.4.3
+	  - Fixed bug in select_wrap.  If timeout is None (e.g., the
+	    default for prsync, etc.), then never time out.  Bug reported
+	    by Carlo Marcelo Arenas Belon (carenas at sajinet.com.pe).
+	  - Catch getopt exceptions and print usage as well as getopt
+	    exception string.  Contribution from Carlo Marcelo Arenas
+	    Belon (carenas at sajinet.com.pe).
+	  - Added contribution from Bas van der Vlies (basv at sara.nl)
+	    to allow comments in hosts file.  Comments must begin with
+	    # character (leading whitespace is also allowed).
+	  - Restore file status bugs after reading stdin in pssh.
+	  - Fixed typo bug in pslurp when using options and in
+   	    non-recursive mode.
+          - Removed conflicts with built-in names.
 2008-09-01 Brent N. Chun <bnc at theether.org>
 	* Version 1.4.2
 	  - Fixed minor bug: select returns select.error on an error,

@@ -1,4 +1,5 @@
-import os, signal, sys
+import re
+import sys
 
 def read_hosts(pathname):
     """
@@ -6,7 +7,6 @@ def read_hosts(pathname):
     three arrays: hosts, ports, and users.  These can be used directly
     for all ssh-based commands (e.g., ssh, scp, rsync -e ssh, etc.)
     """
-    import re
     f = open(pathname)
     lines = f.readlines()
     lines = map(lambda x: x.strip(), lines)
@@ -15,7 +15,8 @@ def read_hosts(pathname):
     ports = []
     users = []
     for line in lines:
-        if re.match("^\s+$", line) or len(line) == 0:
+        # Skip blank lines or lines starting with #
+        if re.match("^\s+$", line) or re.match("^\s*#", line) or len(line) == 0:
             continue
         fields = re.split("\s", line)
         if len(fields) == 1:

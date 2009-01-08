@@ -8,13 +8,12 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pnuke 361 2008-08-27 10:41:14Z bnc $
+# $Id: pnuke 400 2008-10-12 11:48:28Z bnc $
 #
 import fcntl
 import getopt
 import os
 import pwd
-import re
 import signal
 import subprocess
 import sys
@@ -23,7 +22,6 @@ import threading
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
 sys.path.append("%s" % basedir)
 
-import psshlib
 from psshlib import psshutil
 from psshlib.basethread import BaseThread
 
@@ -69,17 +67,31 @@ def read_envvars(flags):
 
 def parsecmdline(argv):
     shortopts = "h:l:p:o:e:t:O:v"
-    longopts = [ "hosts=", "user=", "par=", "outdir=", "errdir=",
-                 "timeout=","options=",
+    longopts = [ "hosts=",
+                 "user=",
+                 "par=",
+                 "outdir=",
+                 "errdir=",
+                 "timeout=",
+                 "options=",
                  "verbose" ]
-    flags = { "hosts" : None, "user" : None,
-              "par" : _DEFAULT_PARALLELISM, "outdir" : None,
-              "errdir" : None, "timeout" : _DEFAULT_TIMEOUT,
+    flags = { "hosts" : None,
+              "user" : None,
+              "par" : _DEFAULT_PARALLELISM,
+              "outdir" : None,
+              "errdir" : None,
+              "timeout" : _DEFAULT_TIMEOUT,
               "options" : None,
               "verbose" : None }
     read_envvars(flags)
-    if not flags["user"]: flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
-    opts, args = getopt.getopt(argv[1:], shortopts, longopts)
+    if not flags["user"]:
+        flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
+    try:
+        opts, args = getopt.getopt(argv[1:], shortopts, longopts)
+    except getopt.GetoptError, e:
+        print "Error: %s\n" % str(e)
+        print_usage()
+        sys.exit(3)
     for o, v in opts:
         if o in ("-h", "--hosts"):
             flags["hosts"] = v
@@ -144,4 +156,3 @@ if __name__ == "__main__":
     signal.signal(signal.SIGCHLD, signal.SIG_DFL)
     os.setpgid(0, 0)
     do_pnuke(hosts, ports, users, pattern, flags)
-

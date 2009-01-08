@@ -11,13 +11,12 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pssh 361 2008-08-27 10:41:14Z bnc $
+# $Id: pssh 400 2008-10-12 11:48:28Z bnc $
 #
 import fcntl
 import getopt
 import os
 import pwd
-import re
 import signal
 import subprocess
 import sys
@@ -77,18 +76,35 @@ def read_envvars(flags):
 
 def parsecmdline(argv):
     shortopts = "h:l:p:o:e:t:O:Pvi"
-    longopts = [ "hosts=", "user=", "par=", "outdir=", "errdir=",
-                 "timeout=", "options=",
-                 "print", "verbose", "inline" ]
-    flags = { "hosts" : None, "user" : None,
-              "par" : _DEFAULT_PARALLELISM, "outdir" : None,
-              "errdir" : None,  "timeout" : _DEFAULT_TIMEOUT,
+    longopts = [ "hosts=",
+                 "user=",
+                 "par=",
+                 "outdir=",
+                 "errdir=",
+                 "timeout=",
+                 "options=",
+                 "print",
+                 "verbose",
+                 "inline" ]
+    flags = { "hosts" : None,
+              "user" : None,
+              "par" : _DEFAULT_PARALLELISM,
+              "outdir" : None,
+              "errdir" : None,
+              "timeout" : _DEFAULT_TIMEOUT,
               "options" : None,
-              "verbose" : None, "print" : None,
+              "print" : None,
+              "verbose" : None,
               "inline": None }
     read_envvars(flags)
-    if not flags["user"]: flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
-    opts, args = getopt.getopt(argv[1:], shortopts, longopts)
+    if not flags["user"]:
+        flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
+    try:
+        opts, args = getopt.getopt(argv[1:], shortopts, longopts)
+    except getopt.GetoptError, e:
+        print "Error: %s\n" % str(e)
+        print_usage()
+        sys.exit(3)
     for o, v in opts:
         if o in ("-h", "--hosts"):
             flags["hosts"] = v
@@ -121,18 +137,21 @@ def parsecmdline(argv):
     return args, flags
 
 def buffer_input():
-    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
+    origfl = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
+    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl | os.O_NONBLOCK)
     try:
-        return sys.stdin.read()
+        stdin = sys.stdin.read()
     except IOError: # Stdin contained no information
-        return ''
+        stdin = ""
+    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl)
+    return stdin
 
 def do_pssh(hosts, ports, users, cmdline, flags):
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
         os.makedirs(flags["outdir"])
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
         os.makedirs(flags["errdir"])
-    input = buffer_input()
+    stdin = buffer_input()
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
@@ -148,14 +167,13 @@ def do_pssh(hosts, ports, users, cmdline, flags):
         else:
             cmd = "ssh %s -p %s -l %s %s \"%s\"" % \
                        (hosts[i], ports[i], users[i], quietswitch, cmdline)
-        t = BaseThread(hosts[i], ports[i], cmd, flags, sem, input)
+        t = BaseThread(hosts[i], ports[i], cmd, flags, sem, stdin)
         t.start()
         threads.append(t)
     for t in threads:
         t.join()
-
    
-def main():
+if __name__ == "__main__":
     subprocess._cleanup = lambda : None
     args, flags = parsecmdline(sys.argv)
     if len(args) == 0:
@@ -167,6 +185,3 @@ def main():
     signal.signal(signal.SIGCHLD, signal.SIG_DFL)
     os.setpgid(0, 0)
     do_pssh(hosts, ports, users, cmdline, flags)
-
-if __name__ == "__main__":
-    main()

@@ -13,23 +13,32 @@ import traceback
 import Queue
 
 class BaseThread(threading.Thread):
-    def __init__(self, host, port, cmd, flags, sem, input=None):
+    def __init__(self, host, port, cmd, flags, sem, stdin=None):
         threading.Thread.__init__(self)
         self.host = host
         self.port = port
         self.cmd = cmd
         self.flags = flags
         self.sem = sem
-        self.input = input
+        self.stdin = stdin
         self.outputbuffer = ""
 
     def select_wrap(self, rlist, wlist, elist, timeout):
+        """
+        Perform a select on rlist, wlist, elist with the specified
+        timeout while retrying if the the select call is interrupted
+        because of a signal.  If timeout is None, this method never
+        times out.
+        """
         t1 = time.time()
         while True:
             try:
                 t2 = time.time()
-                t = max(0, timeout - (t2 - t1))
-                r, w, e = select.select(rlist, wlist, elist, t)
+                if timeout is not None:
+                    t = max(0, timeout - (t2 - t1))
+                    r, w, e = select.select(rlist, wlist, elist, t)
+                else: # No timeout
+                    r, w, e = select.select(rlist, wlist, elist)
                 return r, w, e
             except select.error, e:
                 if e.args[0] == EINTR:
@@ -75,10 +84,10 @@ class BaseThread(threading.Thread):
             cstdout = child.stdout
             cstderr = child.stderr
             cstdin = child.stdin
-            if self.input:
-                self.write_wrap(cstdin.fileno(), self.input)
+            if self.stdin:
+                self.write_wrap(cstdin.fileno(), self.stdin)
                 cstdin.close()
-                del self.input # Throw away stdin's input, since we don't need it
+                del self.stdin # Throw away stdin input, since we don't need it
             iomap = { cstdout : stdout, cstderr : stderr }
             fcntl.fcntl(cstdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
             fcntl.fcntl(cstderr.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
