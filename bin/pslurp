@@ -12,7 +12,7 @@
 #
 # $Id: pslurp,v 1.1.1.1 2004/08/21 20:27:46 bnc Exp $
 #
-import fcntl, os, popen2, select, signal, sys, threading, time
+import fcntl, os, popen2, pwd, select, signal, sys, threading, time
 sys.path.append("/usr/local/lib/python2.2")
 from basethread import BaseThread
 
@@ -63,6 +63,7 @@ def parsecmdline(argv):
               "user" : None, "par" : _DEFAULT_PARALLELISM, "outdir" : None,
               "errdir" : None, "timeout" : _DEFAULT_TIMEOUT, "options" : None }
     read_envvars(flags)
+    flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user    
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
         if o in ("-r", "--recursive"):
