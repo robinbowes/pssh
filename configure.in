@@ -1,0 +1,19 @@
+dnl
+dnl Create Makefile and spec file so that we just do a 'make dist'. Then
+dnl and 'rpm -bb' on the .tar.gz file to build the RPM with the
+dnl right package name and version number.
+dnl
+dnl Created: 31 March 2003
+dnl
+AC_INIT(pssh.spec.in)
+
+dnl
+dnl Sets PACKAGE and VERSION defines
+dnl
+AM_INIT_AUTOMAKE(pssh,0.2.3)
+
+dnl
+dnl Generate spec file
+dnl
+AC_OUTPUT(Makefile \
+          pssh.spec)

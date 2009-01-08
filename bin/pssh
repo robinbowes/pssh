@@ -1,0 +1,163 @@
+#!/usr/bin/env python2.2
+# -*- Mode: python -*-
+#
+# Usage: pssh [OPTIONS] -h hosts.txt prog [arg0] [arg1] ..
+#
+# Parallel ssh to the set of nodes in hosts.txt. For each node, this
+# essentially does an "ssh host -l user prog [arg0] [arg1] ...". The -o
+# option can be used to store stdout from each remote node in a
+# directory.  Each output file in that directory will be named by the
+# corresponding remote node's hostname or IP address.
+#
+# Created: 16 August 2003
+#
+# $Id: pssh,v 1.6 2003/11/13 09:10:17 bnc Exp $
+#
+import fcntl, os, popen2, select, signal, sys, threading, time
+sys.path.append("/usr/local/lib/python2.2")
+
+_DEFAULT_PARALLELISM = 32
+_DEFAULT_TIMEOUT     = 60
+
+class ssh_thread(threading.Thread):
+    def __init__(self, host, port, user, cmdline, flags, sem):
+        threading.Thread.__init__(self)
+        self.host = host
+        self.port = port
+        if flags["verbose"]:
+            quietswitch = ""
+        else:
+            quietswitch = "-q"
+        if flags["options"]:
+            self.cmd = "ssh -o \"%s\" %s -p %s -l %s %s \"%s\"" % \
+                       (flags["options"], host, port, user, quietswitch, cmdline)
+        else:
+            self.cmd = "ssh %s -p %s -l %s %s \"%s\"" % \
+                       (host, port, user, quietswitch, cmdline)
+        self.flags = flags
+        self.sem = sem
+        
+    def run(self):
+        try:
+            child = popen2.Popen3(self.cmd)
+            cstdout = child.fromchild
+            fcntl.fcntl(cstdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
+            chunks = []
+            start = time.time()
+            while 1:
+                timeout = flags["timeout"] - (time.time() - start)
+                if timeout <= 0:
+                    raise "Timeout on %s:%d" % (self.host, self.port)
+                r, w, e = select.select([cstdout, ], [], [], timeout)
+                try:
+                    chunk = cstdout.read()
+                    if len(chunk) == 0:
+                        break
+                    chunks.append(chunk)
+                except:
+                    os.kill(child.pid, signal.SIGKILL)                
+                    raise
+            data = "".join(chunks)
+            if self.flags["outdir"]:
+                pathname = "%s/%s" % (self.flags["outdir"], self.host)
+                open(pathname, "w").write(data)
+            print "Success on %s:%d" % (self.host, self.port)
+            sys.stdout.flush()
+        except:
+            print "Error on %s:%d" % (self.host, self.port)
+            if self.flags["outdir"]:
+                pathname = "%s/%s" % (self.flags["outdir"], self.host)
+                open(pathname, "w") # Create 0 byte file on error
+        self.sem.release()
+        
+def print_usage():
+    print "Usage: pssh [OPTIONS] -h hosts.txt prog [arg0] .."
+    print
+    print "  -h --hosts   hosts file (each line \"host[:port] [user]\")"
+    print "  -l --user    username (OPTIONAL)"
+    print "  -p --par     max number of parallel threads (OPTIONAL)"
+    print "  -o --outdir  output directory for stdout files (OPTIONAL)"
+    print "  -t --timeout timeout in seconds to do ssh to a host (OPTIONAL)"
+    print "  -v --verbose turn on warning and diagnostic messages (OPTIONAL)"
+    print "  -O --options SSH options (OPTIONAL)"
+    print
+    print "Example: pssh -h nodes.txt -l irb2 -o /tmp/foo uptime"
+    print 
+
+def read_envvars(flags):
+    if os.getenv("PSSH_HOSTS"):
+        flags["hosts"] = os.getenv("PSSH_HOSTS")
+    if os.getenv("PSSH_USER"):
+        flags["user"] = os.getenv("PSSH_USER")
+    if os.getenv("PSSH_PAR"):
+        flags["par"] = int(os.getenv("PSSH_PAR"))
+    if os.getenv("PSSH_OUTDIR"):
+        flags["outdir"] = os.getenv("PSSH_OUTDIR")
+    if os.getenv("PSSH_TIMEOUT"):
+        flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))
+    if os.getenv("PSSH_VERBOSE"): # "0" or "1"
+        flags["verbose"] = int(os.getenv("PSSH_VERBOSE"))
+    if os.getenv("PSSH_OPTIONS"):
+        flags["options"] = os.getenv("PSSH_OPTIONS")
+
+def parsecmdline(argv):
+    import getopt
+    shortopts = "h:l:p:o:t:vO:"
+    longopts = [ "hosts", "user", "par", "outdir", "timeout",
+                 "verbose", "options" ]
+    flags = { "hosts" : None, "user" : None, "par" : _DEFAULT_PARALLELISM,
+              "outdir" : None, "timeout" : _DEFAULT_TIMEOUT, "verbose" : None,
+              "options" : None }
+    read_envvars(flags)
+    opts, args = getopt.getopt(argv[1:], shortopts, longopts)
+    for o, v in opts:
+        if o in ("-h", "--hosts"):
+            flags["hosts"] = v
+        elif o in ("-l", "--user"):
+            flags["user"] = v
+        elif o in ("-p", "--par"):
+            flags["par"] = int(v)
+        elif o in ("-o", "--outdir"):
+            flags["outdir"] = v
+        elif o in ("-t", "--timeout"):
+            flags["timeout"] = int(v)
+        elif o in ("-v", "--verbose"):
+            flags["verbose"] = 1
+        elif o in ("-O", "--options"):
+            flags["options"] = v
+    # Required flags
+    if not flags["hosts"]:
+        print_usage()
+        sys.exit(3)
+    return args, flags
+
+def do_pssh(hosts, ports, users, cmdline, flags):
+    import os, re
+    if flags["outdir"] and not os.path.exists(flags["outdir"]):
+        os.mkdir(flags["outdir"])
+    sem = threading.Semaphore(flags["par"])
+    for i in range(len(hosts)):
+        sem.acquire()
+        t = ssh_thread(hosts[i], ports[i], users[i], cmdline, flags, sem)
+        t.start()
+
+def write_stdout(dir, output):
+    cwd = os.getcwd()
+    os.chdir(dir)
+    try:
+        for h in output: # Output files named by host (or IP)
+            data = output[h]
+            open(h, "w").write(data)
+    finally:
+        os.chdir(cwd)
+
+if __name__ == "__main__":
+    import psshutil
+    args, flags = parsecmdline(sys.argv)
+    if len(args) == 0:
+        print_usage()
+        sys.exit(3)
+    cmdline = " ".join(args)
+    hosts, ports, users = psshutil.read_hosts(flags["hosts"])
+    psshutil.patch_users(hosts, ports, users, flags["user"])
+    do_pssh(hosts, ports, users, cmdline, flags)

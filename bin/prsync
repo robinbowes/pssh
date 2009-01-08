@@ -1,0 +1,147 @@
+#!/usr/bin/env python2.2
+# -*- Mode: python -*-
+#
+# Usage: prsync [OPTIONS] -h hosts.txt local remote
+#
+# Parallel rsync to the set of nodes in hosts.txt.  For each node,
+# we essentially do a rsync -rv -e ssh local user@host:remote.
+# Note that remote must be an absolute path.
+#
+# Created: 16 August 2003
+#
+# $Id: prsync,v 1.5 2003/11/13 09:10:17 bnc Exp $
+#
+import fcntl, os, popen2, select, signal, sys, threading, time
+sys.path.append("/usr/local/lib/python2.2")
+
+_DEFAULT_PARALLELISM = 32
+_DEFAULT_TIMEOUT     = None  # No timeout by default
+
+class rsync_thread(threading.Thread):
+    def __init__(self, host, port, user, local, remote, flags, sem):
+        threading.Thread.__init__(self)
+        self.host = host
+        self.port = port
+        self.flags = flags
+        if flags["recursive"]:
+            self.cmd = "rsync --port %d -rv -e ssh %s %s@%s:%s" % \
+                       (port, local, user, host, remote)
+        else:
+            self.cmd = "rsync --port %d -v -e ssh %s %s@%s:%s" % \
+                       (port, local, user, host, remote)
+        self.sem = sem
+
+    def run(self):
+        try:
+            child = popen2.Popen3(self.cmd)
+            cstdout = child.fromchild
+            fcntl.fcntl(cstdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
+            chunks = []
+            start = time.time()
+            while 1:
+                timeout = flags["timeout"] - (time.time() - start)
+                if timeout <= 0:
+                    raise "Timeout on %s:%d" % (self.host, self.port)
+                r, w, e = select.select([cstdout, ], [], [], timeout)
+                try:
+                    chunk = cstdout.read()
+                    if len(chunk) == 0:
+                        break
+                    chunks.append(chunk)
+                except:
+                    os.kill(child.pid, signal.SIGKILL)                
+                    raise
+            data = "".join(chunks)
+            if self.flags["outdir"]:
+                pathname = "%s/%s" % (self.flags["outdir"], self.host)
+                open(pathname, "w").write(data)
+            print "Success on %s:%d" % (self.host, self.port)
+            sys.stdout.flush()
+        except:
+            print "Error on %s:%d" % (self.host, self.port)
+            if self.flags["outdir"]:
+                pathname = "%s/%s" % (self.flags["outdir"], self.host)
+                open(pathname, "w") # Create 0 byte file on error
+        self.sem.release()
+        
+def print_usage():
+    print "Usage: prsync [OPTIONS] -h hosts.txt local remote"
+    print
+    print "  -h --hosts     hosts file (each line \"host[:port] [login]\")"    
+    print "  -r --recursive recusively copy directories (OPTIONAL)" 
+    print "  -l --user      username (OPTIONAL)"
+    print "  -p --par       max number of parallel threads (OPTIONAL)"
+    print "  -t --timeout   timeout in seconds to do rsync to a host (OPTIONAL)"
+    print "  -o --outdir    output directory for rsync stdout (OPTIONAL)"
+    print
+    print "Example: prsync -r -h hosts.txt -l irb2 foo " + \
+          "/home/irb2/foo"
+    print 
+
+def read_envvars(flags):
+    if os.getenv("PSSH_HOSTS"):
+        flags["hosts"] = os.getenv("PSSH_HOSTS")
+    if os.getenv("PSSH_USER"):
+        flags["user"] = os.getenv("PSSH_USER")
+    if os.getenv("PSSH_PAR"):
+        flags["par"] = int(os.getenv("PSSH_PAR"))
+    if os.getenv("PSSH_TIMEOUT"):
+        flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))        
+    if os.getenv("PSSH_OPTIONS"):
+        flags["options"] = os.getenv("PSSH_OPTIONS")
+    if os.getenv("PSSH_OUTDIR"):
+        flags["outdir"] = os.getenv("PSSH_OUTDIR")        
+
+def parsecmdline(argv):
+    import getopt
+    shortopts = "h:rl:p:t:o:"
+    longopts = [ "hosts", "recursive", "user", "par", "timeout", "outdir" ]
+    flags = { "hosts" : None, "recursive" : None, "user" : None,
+              "par" : _DEFAULT_PARALLELISM, "timeout" : _DEFAULT_TIMEOUT,
+              "outdir" : None }
+    read_envvars(flags)
+    opts, args = getopt.getopt(argv[1:], shortopts, longopts)
+    for o, v in opts:
+        if o in ("-h", "--hosts"):
+            flags["hosts"] = v
+        elif o in ("-r", "--recursive"):
+            flags["recursive"] = 1
+        elif o in ("-l", "--user"):
+            flags["user"] = v
+        elif o in ("-p", "--par"):
+            flags["par"] = int(v)
+        elif o in ("-t", "--timeout"):
+            flags["timeout"] = int(v)            
+        elif o in ("-o", "--outdir"):
+            flags["outdir"] = v
+    # Required flags
+    if not flags["hosts"]:
+        print_usage()
+        sys.exit(3)
+    return args, flags
+
+def do_prsync(hosts, ports, users, local, remote, flags):
+    import os
+    if flags["outdir"] and not os.path.exists(flags["outdir"]):
+        os.mkdir(flags["outdir"])
+    sem = threading.Semaphore(flags["par"])
+    for i in range(len(hosts)):
+        sem.acquire()
+        t = rsync_thread(hosts[i], ports[i], users[i], local, remote,
+                         flags, sem)
+        t.start()
+
+if __name__ == "__main__":
+    import os, pwd, re, psshutil
+    args, flags = parsecmdline(sys.argv)
+    if len(args) != 2:
+        print_usage()
+        sys.exit(3)
+    local = args[0]
+    remote = args[1]
+    if not re.match("^/", remote):
+        print "Remote path %s must be an absolute path" % remote
+        sys.exit(3)
+    hosts, ports, users = psshutil.read_hosts(flags["hosts"])
+    psshutil.patch_users(hosts, ports, users, flags["user"])
+    do_prsync(hosts, ports, users, local, remote, flags)

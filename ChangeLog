@@ -1,0 +1,15 @@
+2003-11-12  Brent N. Chun <bnc@intel-research.net>
+	* Fixed read bug, so all output it obtained.
+	* Added timeout option (defaults to None for pscp/prsync)
+	* Added verbose option for pssh/pnuke (this is -q or not)
+	* Added environment variables for options
+	* Fixed usage for pnuke
+2003-09-06  Brent N. Chun <bnc@intel-research.net>
+	* Added -O for pssh, pscp, and pnuke for passing SSH options
+	* Changed order of options in usage (required, optional)
+2003-09-06  Brent N. Chun <bnc@intel-research.net>
+	* Added parallel rsync (prsync)
+	* Added support for "host[:port] user" lines in hosts files
+	* Factored a bit of code out into lib/python/psshutil.py
+2003-08-16  Brent N. Chun <bnc@intel-research.net>
+	* Initial version (0.1.0)
