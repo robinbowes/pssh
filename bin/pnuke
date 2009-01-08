@@ -8,12 +8,15 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pnuke 360 2008-08-25 06:43:01Z bnc $
+# $Id: pnuke 361 2008-08-27 10:41:14Z bnc $
 #
 import fcntl
+import getopt
 import os
 import pwd
+import re
 import signal
+import subprocess
 import sys
 import threading
 
@@ -21,6 +24,7 @@ basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
 sys.path.append("%s" % basedir)
 
 import psshlib
+from psshlib import psshutil
 from psshlib.basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
@@ -64,7 +68,6 @@ def read_envvars(flags):
         flags["verbose"] = int(os.getenv("PSSH_VERBOSE"))
 
 def parsecmdline(argv):
-    import getopt
     shortopts = "h:l:p:o:e:t:O:v"
     longopts = [ "hosts=", "user=", "par=", "outdir=", "errdir=",
                  "timeout=","options=",
@@ -105,7 +108,6 @@ def parsecmdline(argv):
     return args, flags
 
 def do_pnuke(hosts, ports, users, pattern, flags):
-    import os, re
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
         os.makedirs(flags["outdir"])
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
@@ -130,7 +132,7 @@ def do_pnuke(hosts, ports, users, pattern, flags):
         t.join()
 
 if __name__ == "__main__":
-    from psshlib import psshutil
+    subprocess._cleanup = lambda : None
     args, flags = parsecmdline(sys.argv)
     if len(args) == 0:
         print_usage()
@@ -139,7 +141,7 @@ if __name__ == "__main__":
     cmdline = " ".join(args)
     hosts, ports, users = psshutil.read_hosts(flags["hosts"])
     psshutil.patch_users(hosts, ports, users, flags["user"])
-    signal.signal(signal.SIGCHLD, psshutil.reaper)
+    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
     os.setpgid(0, 0)
     do_pnuke(hosts, ports, users, pattern, flags)
 

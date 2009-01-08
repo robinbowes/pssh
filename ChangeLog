@@ -1,3 +1,10 @@
+2008-08-27 Brent N. Chun <bnc at theether.org>
+	* Version 1.4.1
+	  - Removed broken SIGCHLD handler.
+	  - Refining subprocess _cleanup dynamically to an empty lambda
+	    function since subprocess is not thread-safe and we already
+	    call wait on child processes ourselves anyway.
+	  - Adding missing verbose flag to rest of bin/* programs.
 2008-08-24  Brent N. Chun <bnc at theether.org>
 	* Version 1.4.0
           - Fixed 64-bit bug in pslurp, pscp, prsync.  Previously, the

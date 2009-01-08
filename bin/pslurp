@@ -10,12 +10,15 @@
 #
 # Created: 18 November 2003
 #
-# $Id: pslurp 360 2008-08-25 06:43:01Z bnc $
+# $Id: pslurp 361 2008-08-27 10:41:14Z bnc $
 #
 import fcntl
+import getopt
 import os
 import pwd
+import re
 import signal
+import subprocess
 import sys
 import threading
     
@@ -23,6 +26,7 @@ basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
 sys.path.append("%s" % basedir)
     
 import psshlib
+from psshlib import psshutil
 from psshlib.basethread import BaseThread
     
 _DEFAULT_PARALLELISM = 32
@@ -39,6 +43,7 @@ def print_usage():
     print "  -o --outdir    output directory for stdout files (OPTIONAL)"
     print "  -e --errdir    output directory for stderr files (OPTIONAL)"
     print "  -t --timeout   timeout (secs) (-1 = no timeout) per host (OPTIONAL)"
+    print "  -v --verbose   turn on warning and diagnostic messages (OPTIONAL)"
     print "  -O --options   SSH options (OPTIONAL)"
     print
     print "Example: pslurp -h hosts.txt -L /tmp/outdir -l irb2 \\"
@@ -68,18 +73,19 @@ def read_envvars(flags):
         flags["options"] = os.getenv("PSSH_OPTIONS")
     if os.getenv("PSSH_RECURSIVE"):
        flags["recursive"] = int(os.getenv("PSSH_RECURSIVE"))
+    if os.getenv("PSSH_VERBOSE"): # "0" or "1"
+        flags["verbose"] = int(os.getenv("PSSH_VERBOSE"))
     
 def parsecmdline(argv):
-    import getopt
-    shortopts = "L:h:l:p:o:e:t:O:r"
+    shortopts = "L:h:l:p:o:e:t:O:rv"
     longopts = [ "localdir=", "hosts=", "user=", "par=", "outdir=",
              "errdir=", "timeout=", "options=",
-             "recursive" ]
+             "recursive", "verbose" ]
     flags = { "localdir" : None, "hosts" : None,
               "user" : None, "par" : _DEFAULT_PARALLELISM,
               "outdir" : None, "errdir" : None,
               "timeout" : _DEFAULT_TIMEOUT, "options" : None,
-              "recursive" : None }
+              "recursive" : None, "verbose" : None }
     read_envvars(flags)
     if not flags["user"]: flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
@@ -106,6 +112,8 @@ def parsecmdline(argv):
             flags["options"] = v
         elif o in ("-r", "--recursive"):
             flags["recursive"] = 1
+        elif o in ("-v", "--verbose"):
+            flags["verbose"] = 1
     # Required flags
     if not flags["hosts"]:
         print_usage()
@@ -113,7 +121,6 @@ def parsecmdline(argv):
     return args, flags
 
 def do_pslurp(hosts, ports, users, remote, local, flags):
-    import os
     if flags["localdir"] and not os.path.exists(flags["localdir"]):
         os.makedirs(flags["localdir"])
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
@@ -150,8 +157,7 @@ def do_pslurp(hosts, ports, users, remote, local, flags):
         t.join()
 
 if __name__ == "__main__":
-    import os, pwd, re
-    from psshlib import psshutil
+    subprocess._cleanup = lambda : None
     args, flags = parsecmdline(sys.argv)
     if len(args) != 2:
         print_usage()
@@ -163,6 +169,6 @@ if __name__ == "__main__":
         sys.exit(3)
     hosts, ports, users = psshutil.read_hosts(flags["hosts"])
     psshutil.patch_users(hosts, ports, users, flags["user"])
-    signal.signal(signal.SIGCHLD, psshutil.reaper)
+    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
     os.setpgid(0, 0)
     do_pslurp(hosts, ports, users, remote, local, flags)

@@ -33,7 +33,7 @@ class BaseThread(threading.Thread):
                     continue
                 raise
 
-    def read_wrap(self, fd, nbytes):
+    def async_read_wrap(self, fd, nbytes):
        """Read up to nbytes from fd (or less if would block"""
        buf = cStringIO.StringIO()
        while len(buf.getvalue()) != nbytes:
@@ -66,9 +66,9 @@ class BaseThread(threading.Thread):
         done = None
         stdout = cStringIO.StringIO()
         stderr = cStringIO.StringIO()
+        child = Popen([self.cmd], stderr=PIPE, stdin=PIPE, stdout=PIPE,
+                      close_fds=True, preexec_fn=os.setsid, shell=True)
         try:
-            child = Popen([self.cmd], stderr=PIPE, stdin=PIPE, stdout=PIPE,
-                          close_fds=True, preexec_fn=os.setsid, shell=True)
             cstdout = child.stdout
             cstderr = child.stderr
             cstdin = child.stdin
@@ -93,7 +93,7 @@ class BaseThread(threading.Thread):
                                                [], [], None)
                 try:
                     for f in r:
-                        chunk = self.read_wrap(f.fileno(), 1 << 16)
+                        chunk = self.async_read_wrap(f.fileno(), 1 << 16)
                         if len(chunk) == 0:
                             done = 1
                         iomap[f].write(chunk)                    
@@ -122,6 +122,7 @@ class BaseThread(threading.Thread):
             self.write_output(stdout, stderr)
         try:
             os.kill(-child.pid, signal.SIGKILL)
+            child.poll()
         except: pass
         self.sem.release()
 
