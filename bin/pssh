@@ -11,7 +11,7 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pssh,v 1.1.1.1 2004/08/21 20:27:46 bnc Exp $
+# $Id: pssh,v 1.2 2004/10/05 11:05:10 bnc Exp $
 #
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
 sys.path.append("/usr/local/lib/python2.2")

@@ -2,16 +2,10 @@
 * Add retries
 * Look at os.kill with normal child.pid (no -), *maybe* need -
   - e.g., transients on PlanetLab
-* Refactor code
-  - e.g., run is same for pssh/rsync, same for pscp/pnuke
 * Change output file format
   - Name by IP and port (to handle SSH tunnels, many localhost conns)
 * Support an SSH tunnel node
   - Before || ssh, set up tunnels -L .. -L ... -L .. (then use to tunnel)
-* Write pscp in reverse direction
-  - This is a parallel "gather"
-* Default user if -l not specific?  How deal with case when file has user
-  - Thus if no file and no -l, use default, else do what we've been doing
 * Fix up usage
   - Some options have args, some options don't have args (see SHARP svm)
 * Fix up timeouts on prsync (doesn't quite work, doesn't look like

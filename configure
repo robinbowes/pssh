@@ -692,7 +692,7 @@ fi
 
 PACKAGE=pssh
 
-VERSION=1.1.1
+VERSION=1.2.0
 
 if test "`cd $srcdir && pwd`" != "`pwd`" && test -f $srcdir/config.status; then
   { echo "configure: error: source directory already configured; run "make distclean" there first" 1>&2; exit 1; }
