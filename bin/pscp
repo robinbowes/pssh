@@ -10,9 +10,14 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pscp 348 2008-06-05 06:57:26Z bnc $
+# $Id: pscp 360 2008-08-25 06:43:01Z bnc $
 #
-import fcntl, os, popen2, pwd, select, signal, sys, threading, time
+import fcntl
+import os
+import pwd
+import signal
+import sys
+import threading
 
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
 sys.path.append("%s" % basedir)
@@ -21,7 +26,7 @@ import psshlib
 from psshlib.basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
-_DEFAULT_TIMEOUT     = sys.maxint # "infinity" by default
+_DEFAULT_TIMEOUT     = None # "infinity" by default
 
 def print_usage():
     print "Usage: pscp [OPTIONS] -h hosts.txt local remote"
@@ -32,7 +37,7 @@ def print_usage():
     print "  -p --par       max number of parallel threads (OPTIONAL)"
     print "  -o --outdir    output directory for stdout files (OPTIONAL)"
     print "  -e --errdir    output directory for stderr files (OPTIONAL)"
-    print "  -t --timeout   timeout in seconds to do scp to a host (OPTIONAL)"
+    print "  -t --timeout   timeout (secs) (-1 = no timeout) per host (OPTIONAL)"
     print "  -O --options   SSH options (OPTIONAL)"
     print
     print "Example: pscp -h hosts.txt -l irb2 foo.txt /home/irb2/foo.txt"
@@ -50,25 +55,32 @@ def read_envvars(flags):
     if os.getenv("PSSH_ERRDIR"):
         flags["errdir"] = os.getenv("PSSH_ERRDIR")
     if os.getenv("PSSH_TIMEOUT"):
-        flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))
+        timeout = int(os.getenv("PSSH_TIMEOUT"))
+        if timeout != -1:
+            flags["timeout"] = timeout
+        else:
+            flags["timeout"] = None
     if os.getenv("PSSH_OPTIONS"):
         flags["options"] = os.getenv("PSSH_OPTIONS")
+    if os.getenv("PSSH_RECURSIVE"):
+       flags["recursive"] = int(os.getenv("PSSH_RECURSIVE"))
 
 def parsecmdline(argv):
     import getopt
-    shortopts = "rh:l:p:o:e:t:O:"
-    longopts = [ "recursive", "hosts" , "user", "par", "outdir", "errdir",
-                 "timeout", "options" ]
-    flags = { "recursive" : None, "hosts" : None, "user" : None,
-              "par" : _DEFAULT_PARALLELISM, "outdir" : None, "errdir" : None,
-              "timeout" : _DEFAULT_TIMEOUT, "options" : None }
+    shortopts = "h:l:p:o:e:t:O:r"
+    longopts = [ "hosts=" , "user=", "par=", "outdir=", "errdir=",
+                 "timeout=", "options=",
+                 "recursive" ]
+    flags = { "hosts" : None, "user" : None,
+              "par" : _DEFAULT_PARALLELISM, "outdir" : None,
+              "errdir" : None, "timeout" : _DEFAULT_TIMEOUT,
+              "options" : None,
+              "recursive" : None }
     read_envvars(flags)
     if not flags["user"]: flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
-        if o in ("-r", "--recursive"):
-            flags["recursive"] = 1
-        elif o in ("-h", "--hosts"):
+        if o in ("-h", "--hosts"):
             flags["hosts"] = v
         elif o in ("-l", "--user"):
             flags["user"] = v
@@ -79,9 +91,15 @@ def parsecmdline(argv):
         elif o in ("-e", "--errdir"):
             flags["errdir"] = v
         elif o in ("-t", "--timeout"):
-            flags["timeout"] = int(v)
+            timeout =  int(v)
+            if timeout != -1:
+               flags["timeout"] = timeout
+            else:
+               flags["timeout"] = None
         elif o in ("-O", "--options"):
             flags["options"] = v
+        elif o in ("-r", "--recursive"):
+            flags["recursive"] = 1
     # Required flags
     if not flags["hosts"]:
         print_usage()

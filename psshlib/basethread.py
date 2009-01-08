@@ -1,5 +1,16 @@
-import color, cStringIO, fcntl, os, select, signal, sys, threading, time, Queue
+from errno import EAGAIN, EINTR
 from subprocess import Popen, PIPE
+import color
+import cStringIO
+import fcntl
+import os
+import select
+import signal
+import sys
+import threading
+import time
+import traceback
+import Queue
 
 class BaseThread(threading.Thread):
     def __init__(self, host, port, cmd, flags, sem, input=None):
@@ -10,7 +21,46 @@ class BaseThread(threading.Thread):
         self.flags = flags
         self.sem = sem
         self.input = input
-        self.outputbuffer = ''
+        self.outputbuffer = ""
+
+    def select_wrap(self, rlist, wlist, elist, timeout):
+        while True:
+            try:
+                r, w, e = select.select(rlist, wlist, elist, timeout)
+                return r, w, e
+            except OSError, e:
+                if e.errno == EINTR:
+                    continue
+                raise
+
+    def read_wrap(self, fd, nbytes):
+       """Read up to nbytes from fd (or less if would block"""
+       buf = cStringIO.StringIO()
+       while len(buf.getvalue()) != nbytes:
+          try:
+              chunk = os.read(fd, nbytes - len(buf.getvalue()))
+              if len(chunk) == 0:
+                  return buf.getvalue() # EOF, so return
+              buf.write(chunk)
+          except OSError, e:
+              if e.errno == EINTR:
+                  continue
+              elif e.errno == EAGAIN:
+                  return buf.getvalue() 
+              raise
+       return buf.getvalue()
+
+    def write_wrap(self, fd, data):
+        """Write data to fd (assumes a blocking fd)"""
+        bytesWritten = 0
+        while bytesWritten != len(data):
+            try:
+                n = os.write(fd, data[bytesWritten:])
+                bytesWritten += n
+            except OSError, e:
+                if e.errno == EINTR:
+                    continue
+                raise
 
     def run(self):
         done = None
@@ -23,7 +73,7 @@ class BaseThread(threading.Thread):
             cstderr = child.stderr
             cstdin = child.stdin
             if self.input:
-                cstdin.write(self.input)
+                self.write_wrap(cstdin.fileno(), self.input)
                 cstdin.close()
                 del self.input # Throw away stdin's input, since we don't need it
             iomap = { cstdout : stdout, cstderr : stderr }
@@ -32,19 +82,24 @@ class BaseThread(threading.Thread):
             start = time.time()
             status = -1 # Set status to -1 for other errors (timeout, etc.)
             while 1:
-                timeout = self.flags["timeout"] - (time.time() - start)
-                if timeout <= 0:
-                    raise Exception("Timeout")
-                r, w, e = select.select([ cstdout, cstderr ], [], [], timeout)
+                if self.flags["timeout"] is not None:
+                    timeout = self.flags["timeout"] - (time.time() - start)
+                    if timeout <= 0:
+                        raise Exception("Timeout")
+                    r, w, e = self.select_wrap([ cstdout, cstderr ], 
+                                               [], [], timeout)
+                else: # No timeout
+                    r, w, e = self.select_wrap([ cstdout, cstderr ], 
+                                               [], [], None)
                 try:
                     for f in r:
-                        chunk = f.read()
+                        chunk = self.read_wrap(f.fileno(), 1 << 16)
                         if len(chunk) == 0:
                             done = 1
                         iomap[f].write(chunk)                    
                         if self.flags.has_key("print") and self.flags["print"]:
                             to_write = "%s: %s" % (self.host, chunk)
-                            sys.stdout.write(to_write)
+                            self.write_wrap(sys.stdout.fileno(), to_write)
                         if self.flags.has_key("inline") and \
                                self.flags["inline"] and len(chunk) > 0:
                             self.outputbuffer += chunk # Small output only
@@ -59,6 +114,10 @@ class BaseThread(threading.Thread):
             log_completion(self.host, self.port, self.outputbuffer)
             self.write_output(stdout, stderr)
         except Exception, e:
+            if self.flags["verbose"]:
+                print "Exception: %s, %s, %s" % \
+                    (sys.exc_info()[0], sys.exc_info()[1], 
+                     traceback.format_tb(sys.exc_info()[2]))
             log_completion(self.host, self.port, self.outputbuffer, e)
             self.write_output(stdout, stderr)
         try:
@@ -69,10 +128,14 @@ class BaseThread(threading.Thread):
     def write_output(self, stdout, stderr):
         if self.flags["outdir"]:
             pathname = "%s/%s" % (self.flags["outdir"], self.host)
-            open(pathname, "w").write(stdout.getvalue())
+            f = open(pathname, "w")
+            self.write_wrap(f.fileno(), stdout.getvalue())
+            f.close()
         if self.flags["errdir"]:
             pathname = "%s/%s" % (self.flags["errdir"], self.host)
-            open(pathname, "w").write(stderr.getvalue())
+            f = open(pathname, "w")
+            self.write_wrap(f.fileno(), stderr.getvalue())
+            f.close()
 
 # Thread-safe queue with a single item: num completed threads
 completed = Queue.Queue()
@@ -95,9 +158,9 @@ def log_completion(host, port, output, exception=None):
             failure = "[FAILURE]"
             exc = str(exception)
         if exception is not None:
-            print progress, tstamp, failure, host, exc
+            print progress, tstamp, failure, host, port, exc
         else:
-            print progress, tstamp, success, host
+            print progress, tstamp, success, host, port
         if output:
             print output,
         sys.stdout.flush()

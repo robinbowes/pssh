@@ -24,5 +24,4 @@ psshlib/__init__.py
 psshlib/basethread.py
 psshlib/color.py
 psshlib/psshutil.py
-test/ips.txt
-test/test.sh
+test/test.py

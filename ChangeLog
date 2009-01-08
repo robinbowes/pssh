@@ -1,3 +1,17 @@
+2008-08-24  Brent N. Chun <bnc at theether.org>
+	* Version 1.4.0
+          - Fixed 64-bit bug in pslurp, pscp, prsync.  Previously, the
+	    default select timeout was sys.maxint, but this is a 64-bit
+	    value on 64-machines. Now using None when calling select when
+	    there is no timeout.  Bug reported by (buixor at gmail.com).
+          - Catching EINTR and ignoring it for select, read, write in
+	    BaseThread class.
+	  - Fixed longopts for pnuke, prsync, pscp, pslurp, pssh (bug
+	    reported a Debian user via Andrew Pollock (apollock at
+	    debian.org)).
+	    Reference: "bug #481901: pssh: options mis-specified"
+   	  - Added missing environment variables for options for pnuke,
+	    prsync, pscp, pslurp, pssh.
 2008-06-04  Brent N. Chun <bnc at theether.org>
 	* Version 1.3.2
 	  - Added shortopts bug fix from Lev Givon (lev at

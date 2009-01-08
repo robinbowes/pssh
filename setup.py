@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 import os
 setup(
     name = "pssh",
-    version = "1.3.2",
+    version = "1.4.0",
     author = "Brent N. Chun",
     url = "http://www.theether.org/pssh/",
     license = "BSD",
