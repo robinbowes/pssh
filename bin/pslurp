@@ -10,7 +10,7 @@
 #
 # Created: 18 November 2003
 #
-# $Id: pslurp,v 1.1.1.1 2005/12/31 10:03:33 bnc Exp $
+# $Id: pslurp 348 2008-06-05 06:57:26Z bnc $
 #
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
 

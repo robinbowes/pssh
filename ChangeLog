@@ -1,3 +1,7 @@
+2008-06-04  Brent N. Chun <bnc at theether.org>
+	* Version 1.3.2
+	  - Added shortopts bug fix from Lev Givon (lev at
+	    columbia.edu) in bin/pssh.
 2007-04-11  Brent N. Chun <bnc at theether.org>
 	* Version 1.3.1
           - Reverted I/O back to 1.2.2. style pssh I/O.

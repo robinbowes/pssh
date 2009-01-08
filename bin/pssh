@@ -11,7 +11,7 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pssh,v 1.1.1.1 2005/12/31 10:03:33 bnc Exp $
+# $Id: pssh 348 2008-06-05 06:57:26Z bnc $
 #
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
 
@@ -61,7 +61,7 @@ def read_envvars(flags):
 
 def parsecmdline(argv):
     import getopt
-    shortopts = "h:l:p:o:e:t:vO:P:i"
+    shortopts = "h:l:p:o:e:t:vO:Pi"
     longopts = [ "hosts", "user", "par", "outdir", "errdir", "timeout",
                  "verbose", "options", "print", "inline" ]
     flags = { "hosts" : None, "user" : None, "par" : _DEFAULT_PARALLELISM,
