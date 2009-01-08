@@ -1,13 +1,13 @@
 Summary: Parallel SSH tools
 Name: pssh
-Version: 1.2.0
+Version: 1.2.1
 Release: 1
-Copyright: GPL
 Group: system
-Source: pssh-1.2.0.tar.gz 
+Source: pssh-1.2.1.tar.gz 
+License: GPL
 Requires: openssh
 Requires: python2
-Packager: Brent Chun <bnc@intel-research.net>
+Packager: Brent Chun <bnc@theether.org>
 
 %description
 This package provides various parallel tools based on ssh and scp.
@@ -25,10 +25,10 @@ install -D -m 755 bin/pscp /usr/local/bin/pscp
 install -D -m 755 bin/pnuke /usr/local/bin/pnuke
 install -D -m 755 bin/prsync /usr/local/bin/prsync
 install -D -m 755 bin/pslurp /usr/local/bin/pslurp
-install -D -m 644 lib/python2.2/psshutil.py \
-                  /usr/local/lib/python2.2/psshutil.py
-install -D -m 644 lib/python2.2/basethread.py \
-                  /usr/local/lib/python2.2/basethread.py
+install -D -m 644 lib/python/psshutil.py \
+                  /usr/local/lib/python/psshutil.py
+install -D -m 644 lib/python/basethread.py \
+                  /usr/local/lib/python/basethread.py
 
 %clean
 
@@ -39,5 +39,5 @@ install -D -m 644 lib/python2.2/basethread.py \
 /usr/local/bin/pnuke
 /usr/local/bin/prsync
 /usr/local/bin/pslurp
-/usr/local/lib/python2.2/psshutil.py
-/usr/local/lib/python2.2/basethread.py
+/usr/local/lib/python/psshutil.py
+/usr/local/lib/python/basethread.py

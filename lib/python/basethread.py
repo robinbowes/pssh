@@ -35,7 +35,7 @@ class BaseThread(threading.Thread):
                         iomap[f].write(chunk)
                         if self.flags.has_key("print") and self.flags["print"]:
                             to_write = "%s: %s" % (self.host, chunk)
-                            sys.stdout.write(to_write)                        
+                            sys.stdout.write(to_write)
                     if done:
                         break
                 except:

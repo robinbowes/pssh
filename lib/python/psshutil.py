@@ -13,7 +13,7 @@ def read_hosts(pathname):
     """
     Read hostfile with lines of the form: host[:port] [login]. Return
     three arrays: hosts, ports, and users.  These can be used directly
-    for all ssh-based commands (e.g., ssh, scp, rsync -e ssh, etc.) 
+    for all ssh-based commands (e.g., ssh, scp, rsync -e ssh, etc.)
     """
     import re
     f = open(pathname)

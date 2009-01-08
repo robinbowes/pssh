@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 # -*- Mode: python -*-
 #
 # Usage: pslurp [OPTIONS] -h hosts.txt -o outdir remote local
@@ -10,10 +10,13 @@
 #
 # Created: 18 November 2003
 #
-# $Id: pslurp,v 1.2 2004/10/05 11:05:10 bnc Exp $
+# $Id: pslurp,v 1.1.1.1 2005/12/31 10:03:33 bnc Exp $
 #
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
-sys.path.append("/usr/local/lib/python2.2")
+
+basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
+sys.path.append("%s/lib/python" % basedir)
+
 from basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
@@ -27,7 +30,7 @@ def print_usage():
     print "  -h --hosts     hosts file (each line \"host[:port] [login]\")"
     print "  -l --user      username (OPTIONAL)"
     print "  -p --par       max number of parallel threads (OPTIONAL)"
-    print "  -o --outdir    output directory for stdout files (OPTIONAL)"        
+    print "  -o --outdir    output directory for stdout files (OPTIONAL)"
     print "  -e --errdir    output directory for stderr files (OPTIONAL)"
     print "  -t --timeout   timeout in seconds to do scp to a host (OPTIONAL)"
     print "  -O --options   SSH options (OPTIONAL)"    

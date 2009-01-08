@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 # -*- Mode: python -*-
 #
 # Usage: prsync [OPTIONS] -h hosts.txt local remote
@@ -9,10 +9,13 @@
 #
 # Created: 16 August 2003
 #
-# $Id: prsync,v 1.2 2004/10/05 11:05:10 bnc Exp $
+# $Id: prsync,v 1.1.1.1 2005/12/31 10:03:33 bnc Exp $
 #
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
-sys.path.append("/usr/local/lib/python2.2")
+
+basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
+sys.path.append("%s/lib/python" % basedir)
+
 from basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
@@ -21,20 +24,20 @@ _DEFAULT_TIMEOUT     = sys.maxint # "infinity" by default
 def print_usage():
     print "Usage: prsync [OPTIONS] -h hosts.txt local remote"
     print
-    print "  -r --recursive recusively copy directories (OPTIONAL)" 
-    print "  -a --archive   use rsync -a (archive mode) (OPTIONAL)" 
-    print "  -z --compress  use rsync compression (OPTIONAL)" 
-    print "  -h --hosts     hosts file (each line \"host[:port] [login]\")"    
+    print "  -r --recursive recusively copy directories (OPTIONAL)"
+    print "  -a --archive   use rsync -a (archive mode) (OPTIONAL)"
+    print "  -z --compress  use rsync compression (OPTIONAL)"
+    print "  -h --hosts     hosts file (each line \"host[:port] [login]\")"
     print "  -l --user      username (OPTIONAL)"
     print "  -p --par       max number of parallel threads (OPTIONAL)"
-    print "  -o --outdir    output directory for stdout files (OPTIONAL)"        
-    print "  -e --errdir    output directory for stderr files (OPTIONAL)"        
+    print "  -o --outdir    output directory for stdout files (OPTIONAL)"
+    print "  -e --errdir    output directory for stderr files (OPTIONAL)"
     print "  -t --timeout   timeout in seconds to do rsync to a host (OPTIONAL)"
     print "  -O --options SSH options (OPTIONAL)"
     print
     print "Example: prsync -r -h hosts.txt -l irb2 foo " + \
           "/home/irb2/foo"
-    print 
+    print
 
 def read_envvars(flags):
     if os.getenv("PSSH_HOSTS"):
@@ -46,9 +49,9 @@ def read_envvars(flags):
     if os.getenv("PSSH_OUTDIR"):
         flags["outdir"] = os.getenv("PSSH_OUTDIR")
     if os.getenv("PSSH_ERRDIR"):
-        flags["errdir"] = os.getenv("PSSH_ERRDIR")                
+        flags["errdir"] = os.getenv("PSSH_ERRDIR")
     if os.getenv("PSSH_TIMEOUT"):
-        flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))        
+        flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))
     if os.getenv("PSSH_OPTIONS"):
         flags["options"] = os.getenv("PSSH_OPTIONS")
 
@@ -57,12 +60,12 @@ def parsecmdline(argv):
     shortopts = "razh:l:p:o:e:t:O:"
     longopts = [ "recursive", "archive", "compress", "hosts", "user", "par",
                  "outdir", "errdir", "timeout", "options" ]
-    flags = { "recursive" : None, "archive" : None, "compress" : None, 
+    flags = { "recursive" : None, "archive" : None, "compress" : None,
               "hosts" : None, "user" : None, "par" : _DEFAULT_PARALLELISM,
               "outdir" : None, "errdir" : None, "timeout" : _DEFAULT_TIMEOUT,
               "options" : None }
     read_envvars(flags)
-    flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user    
+    flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
         if o in ("-r", "--recursive"):
@@ -96,7 +99,7 @@ def do_prsync(hosts, ports, users, local, remote, flags):
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
         os.mkdir(flags["outdir"])
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
-        os.mkdir(flags["errdir"])            
+        os.mkdir(flags["errdir"])
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
@@ -119,7 +122,7 @@ def do_prsync(hosts, ports, users, local, remote, flags):
             cmd = "setsid rsync --port %d %s %s %s -v -e ssh %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, local, users[i], hosts[i], remote)
         t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
-        threads.append(t)        
+        threads.append(t)
     for t in threads:
         t.join()
 

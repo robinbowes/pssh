@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 # -*- Mode: python -*-
 #
 # Usage: pssh [OPTIONS] -h hosts.txt prog [arg0] [arg1] ..
@@ -11,10 +11,13 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pssh,v 1.2 2004/10/05 11:05:10 bnc Exp $
+# $Id: pssh,v 1.1.1.1 2005/12/31 10:03:33 bnc Exp $
 #
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
-sys.path.append("/usr/local/lib/python2.2")
+
+basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
+sys.path.append("%s/lib/python" % basedir)
+
 from basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
@@ -31,10 +34,10 @@ def print_usage():
     print "  -t --timeout timeout in seconds to do ssh to a host (OPTIONAL)"
     print "  -v --verbose turn on warning and diagnostic messages (OPTIONAL)"
     print "  -O --options SSH options (OPTIONAL)"
-    print "  -P --print   print output as we go (OPTIONAL)"    
+    print "  -P --print   print output as we go (OPTIONAL)"
     print
     print "Example: pssh -h nodes.txt -l irb2 -o /tmp/foo uptime"
-    print 
+    print
 
 def read_envvars(flags):
     if os.getenv("PSSH_HOSTS"):
@@ -83,7 +86,7 @@ def parsecmdline(argv):
         elif o in ("-O", "--options"):
             flags["options"] = v
         elif o in ("-P", "--print"):
-            flags["print"] = 1            
+            flags["print"] = 1
     # Required flags
     if not flags["hosts"]:
         print_usage()
@@ -113,7 +116,7 @@ def do_pssh(hosts, ports, users, cmdline, flags):
                        (hosts[i], ports[i], users[i], quietswitch, cmdline)
         t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
-        threads.append(t)        
+        threads.append(t)
     for t in threads:
         t.join()
 

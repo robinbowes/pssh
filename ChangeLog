@@ -1,3 +1,11 @@
+2005-12-31  Brent N. Chun <bnc at theether.org>
+	* Version 1.2.1
+	  - Changed sys.path so pssh can run without RPM
+	    install.
+	  - Changed RPM library files to install in
+	    /usr/local/lib/python
+	  - make install and make uninstall now work as
+	    expected for installations from source.
 2004-11-10  Brent N. Chun <bnc at intel-research.net>
 	* Added patch from Dave Barr <barr@google.com>
 	  - Adds -a, -z flags to prsync

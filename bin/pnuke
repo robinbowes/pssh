@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 # -*- Mode: python -*-
 #
 # Usage: pnuke [OPTIONS] -h hosts.txt pattern
@@ -8,10 +8,13 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pnuke,v 1.2 2004/10/05 11:05:10 bnc Exp $
+# $Id: pnuke,v 1.1.1.1 2005/12/31 10:03:33 bnc Exp $
 #
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
-sys.path.append("/usr/local/lib/python2.2")
+
+basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
+sys.path.append("%s/lib/python" % basedir)
+
 from basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
@@ -24,13 +27,13 @@ def print_usage():
     print "  -l --user    username (OPTIONAL)"
     print "  -p --par     max number of parallel threads (OPTIONAL)"
     print "  -o --outdir  output directory for stdout files (OPTIONAL)"
-    print "  -e --errdir  output directory for stderr files (OPTIONAL)"    
+    print "  -e --errdir  output directory for stderr files (OPTIONAL)"
     print "  -t --timeout timeout in seconds to do ssh to a host (OPTIONAL)"
-    print "  -v --verbose turn on warning and diagnostic messages (OPTIONAL)"    
-    print "  -O --options SSH options (OPTIONAL)"    
+    print "  -v --verbose turn on warning and diagnostic messages (OPTIONAL)"
+    print "  -O --options SSH options (OPTIONAL)"
     print
     print "Example: pnuke -h hosts.txt -l irb2 java"
-    print 
+    print
 
 def read_envvars(flags):
     if os.getenv("PSSH_HOSTS"):
@@ -42,7 +45,7 @@ def read_envvars(flags):
     if os.getenv("PSSH_OUTDIR"):
         flags["outdir"] = os.getenv("PSSH_OUTDIR")
     if os.getenv("PSSH_ERRDIR"):
-        flags["errdir"] = os.getenv("PSSH_ERRDIR")        
+        flags["errdir"] = os.getenv("PSSH_ERRDIR")
     if os.getenv("PSSH_TIMEOUT"):
         flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))
     if os.getenv("PSSH_VERBOSE"): # "0" or "1"
@@ -59,7 +62,7 @@ def parsecmdline(argv):
               "outdir" : None, "errdir" : None, "timeout" : _DEFAULT_TIMEOUT,
               "verbose" : None, "options" : None }
     read_envvars(flags)
-    flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user    
+    flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
         if o in ("-h", "--hosts"):
@@ -69,13 +72,13 @@ def parsecmdline(argv):
         elif o in ("-p", "--par"):
             flags["par"] = int(v)
         elif o in ("-o", "--outdir"):
-            flags["outdir"] = v            
+            flags["outdir"] = v
         elif o in ("-e", "--errdir"):
-            flags["errdir"] = v            
+            flags["errdir"] = v
         elif o in ("-t", "--timeout"):
             flags["timeout"] = int(v)
         elif o in ("-v", "--verbose"):
-            flags["verbose"] = 1            
+            flags["verbose"] = 1
         elif o in ("-O", "--options"):
             flags["options"] = v
     # Required flags
@@ -87,9 +90,9 @@ def parsecmdline(argv):
 def do_pnuke(hosts, ports, users, pattern, flags):
     import os, re
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
-        os.mkdir(flags["outdir"])    
+        os.mkdir(flags["outdir"])
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
-        os.mkdir(flags["errdir"])    
+        os.mkdir(flags["errdir"])
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
@@ -105,7 +108,7 @@ def do_pnuke(hosts, ports, users, pattern, flags):
                    (hosts[i], ports[i], users[i], quietswitch, users[i], pattern)
         t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
-        threads.append(t)        
+        threads.append(t)
     for t in threads:
         t.join()
 
@@ -115,7 +118,7 @@ if __name__ == "__main__":
     if len(args) == 0:
         print_usage()
         sys.exit(3)
-    pattern = args[0]        
+    pattern = args[0]
     cmdline = " ".join(args)
     hosts, ports, users = psshutil.read_hosts(flags["hosts"])
     psshutil.patch_users(hosts, ports, users, flags["user"])
