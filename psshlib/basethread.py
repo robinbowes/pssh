@@ -24,12 +24,15 @@ class BaseThread(threading.Thread):
         self.outputbuffer = ""
 
     def select_wrap(self, rlist, wlist, elist, timeout):
+        t1 = time.time()
         while True:
             try:
-                r, w, e = select.select(rlist, wlist, elist, timeout)
+                t2 = time.time()
+                t = max(0, timeout - (t2 - t1))
+                r, w, e = select.select(rlist, wlist, elist, t)
                 return r, w, e
-            except OSError, e:
-                if e.errno == EINTR:
+            except select.error, e:
+                if e.args[0] == EINTR:
                     continue
                 raise
 
