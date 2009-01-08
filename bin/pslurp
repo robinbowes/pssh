@@ -15,9 +15,10 @@
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
 
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
-sys.path.append("%s/lib/python" % basedir)
+sys.path.append("%s" % basedir)
 
-from basethread import BaseThread
+import psshlib
+from psshlib.basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = sys.maxint # "infinity" by default
@@ -96,11 +97,11 @@ def parsecmdline(argv):
 def do_pslurp(hosts, ports, users, remote, local, flags):
     import os
     if flags["localdir"] and not os.path.exists(flags["localdir"]):
-        os.mkdir(flags["localdir"])
+        os.makedirs(flags["localdir"])
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
-        os.mkdir(flags["outdir"])
+        os.makedirs(flags["outdir"])
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
-        os.mkdir(flags["errdir"])
+        os.makedirs(flags["errdir"])
     for host in hosts:
         dir = "%s/%s" % (flags["localdir"], host)
         if not os.path.exists(dir):
@@ -111,27 +112,28 @@ def do_pslurp(hosts, ports, users, remote, local, flags):
         sem.acquire()
         localpath = "%s/%s/%s" % (flags["localdir"], hosts[i], local)
         if flags["options"] and flags["recursive"]:
-            cmd = "setsid scp -o \"%s\" -qrC -P %d %s@%s:%s %s" % \
+            cmd = "scp -o \"%s\" -qrC -P %d %s@%s:%s %s" % \
                   (flags["options"], ports[i], users[i], hosts[i],
                    remote, localpath)
         elif flags["options"] and not flags["recursive"]:
-            cmd = "setsid scp -o \"%s\" -qC -P %d %s@%s:%s" % \
+            cmd = "scp -o \"%s\" -qC -P %d %s@%s:%s" % \
                   (flags["options"], ports[i], users[i], hosts[i],
                    remote, localpath)
         elif not flags["options"] and flags["recursive"]:
-            cmd = "setsid scp -qrC -P %d %s@%s:%s %s" % \
+            cmd = "scp -qrC -P %d %s@%s:%s %s" % \
                   (ports[i], users[i], hosts[i], remote, localpath)
         else:
-            cmd = "setsid scp -qC -P %d %s@%s:%s %s" % \
+            cmd = "scp -qC -P %d %s@%s:%s %s" % \
                   (ports[i], users[i], hosts[i], remote, localpath)
         t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
-        threads.append(t)        
+        threads.append(t)
     for t in threads:
         t.join()
 
 if __name__ == "__main__":
-    import os, pwd, re, psshutil
+    import os, pwd, re
+    from psshlib import psshutil
     args, flags = parsecmdline(sys.argv)
     if len(args) != 2:
         print_usage()

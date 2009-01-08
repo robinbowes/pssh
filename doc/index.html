@@ -1,0 +1,582 @@
+<HTML
+><HEAD
+><TITLE
+>pssh HOWTO</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.76b+
+"></HEAD
+><BODY
+CLASS="ARTICLE"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="ARTICLE"
+><DIV
+CLASS="TITLEPAGE"
+><H1
+CLASS="TITLE"
+><A
+NAME="AEN2">pssh HOWTO</H1
+><DIV
+CLASS="AUTHORGROUP"
+><A
+NAME="AEN5"><H3
+CLASS="AUTHOR"
+><A
+NAME="AEN6"
+>Brent Chun</A
+></H3
+></DIV
+><P
+CLASS="PUBDATE"
+>0.1, 2003-11-13<BR></P
+><DIV
+CLASS="REVHISTORY"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+><TR
+><TH
+ALIGN="LEFT"
+VALIGN="TOP"
+COLSPAN="3"
+><B
+>Revision History</B
+></TH
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+>Revision 0.1</TD
+><TD
+ALIGN="LEFT"
+>2003-11-13</TD
+><TD
+ALIGN="LEFT"
+></TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+COLSPAN="3"
+>Initial version.</TD
+></TR
+></TABLE
+></DIV
+><DIV
+><DIV
+CLASS="ABSTRACT"
+><A
+NAME="AEN14"><P
+></P
+><P
+>         </P
+><P
+></P
+></DIV
+></DIV
+><HR></DIV
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+>1. <A
+HREF="#AEN16"
+>Installation and Setup</A
+></DT
+><DT
+>2. <A
+HREF="#AEN26"
+>Preliminaries</A
+></DT
+><DT
+>3. <A
+HREF="#AEN38"
+>Examples</A
+></DT
+><DD
+><DL
+><DT
+>3.1. <A
+HREF="#AEN40"
+>pssh</A
+></DT
+><DT
+>3.2. <A
+HREF="#AEN55"
+>pscp</A
+></DT
+><DT
+>3.3. <A
+HREF="#AEN61"
+>pnuke</A
+></DT
+></DL
+></DD
+><DT
+>4. <A
+HREF="#AEN72"
+>Environment Variables</A
+></DT
+><DT
+>5. <A
+HREF="#AEN80"
+>Feedback</A
+></DT
+></DL
+></DIV
+><DIV
+CLASS="SECT1"
+><H2
+CLASS="SECT1"
+><A
+NAME="AEN16">1. Installation and Setup</H2
+><P
+>     To install the software, become <TT
+CLASS="CONSTANT"
+>root</TT
+> on your machine and do
+     the following (on RedHat systems):
+    </P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # rpm -ivh pssh-0.2.3-1.i386.rpm
+   Preparing...                ########################################### [100%]
+      1:pssh                   ########################################### [100%]</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>     By default, the software installs itself in <TT
+CLASS="CONSTANT"
+>/usr/localbin</TT
+> and
+<TT
+CLASS="CONSTANT"
+>/usr/local/lib</TT
+>.  Thus, you'll next want to
+modify your <TT
+CLASS="CONSTANT"
+>PATH</TT
+> if needed:
+    </P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+># export PATH=$PATH:/usr/local/bin</PRE
+></FONT
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="SECT1"
+><HR><H2
+CLASS="SECT1"
+><A
+NAME="AEN26">2. Preliminaries</H2
+><P
+>All four programs will print their usage and give an example
+if no arguments are given.  For example, with <TT
+CLASS="CONSTANT"
+>pssh</TT
+>:
+    </P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # pssh
+   Usage: pssh [OPTIONS] -h hosts.txt prog [arg0] ..
+   
+     -h --hosts   hosts file (each line "host[:port] [user]")
+     -l --user    username (OPTIONAL)
+     -p --par     max number of parallel threads (OPTIONAL)
+     -o --outdir  output directory for stdout files (OPTIONAL)
+     -t --timeout timeout in seconds to do ssh to a host (OPTIONAL)
+     -v --verbose turn on warning and diagnostic messages (OPTIONAL)
+     -O --options SSH options (OPTIONAL)
+   
+   Example: pssh -h ips.txt -l irb2 -o /tmp/foo uptime</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>And for <TT
+CLASS="CONSTANT"
+>pscp</TT
+>:</P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # pscp
+   Usage: pscp [OPTIONS] -h hosts.txt local remote
+   
+     -h --hosts     hosts file (each line "host[:port] [login]")
+     -r --recursive recusively copy directories (OPTIONAL)
+     -l --user      username (OPTIONAL)
+     -p --par       max number of parallel threads (OPTIONAL)
+     -t --timeout   timeout in seconds to do scp to a host (OPTIONAL)
+     -O --options   SSH options (OPTIONAL)
+   
+   Example: pscp -h hosts.txt -l irb2 foo.txt /home/irb2/foo.txt</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>Note that before using any of these tools, you <EM
+>will need to start
+ssh-agent</EM
+>!   This can be done as follows (substitute <TT
+CLASS="CONSTANT"
+>zsh</TT
+>
+with your particular shell).</P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # ssh-agent zsh
+   # ssh-add
+   Enter passphrase for /x/bnc/.ssh/identity: </PRE
+></FONT
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="SECT1"
+><HR><H2
+CLASS="SECT1"
+><A
+NAME="AEN38">3. Examples</H2
+><DIV
+CLASS="SECT2"
+><H3
+CLASS="SECT2"
+><A
+NAME="AEN40">3.1. pssh</H3
+><P
+>The following example runs <TT
+CLASS="CONSTANT"
+>hostname</TT
+> on three machines (IPs
+or hostnames) specified in the file <TT
+CLASS="CONSTANT"
+>ips.txt</TT
+> using login 
+<TT
+CLASS="CONSTANT"
+>irb2</TT
+> and saves the output in <TT
+CLASS="CONSTANT"
+>/tmp/foo</TT
+>.  </P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # cat ips.txt
+   128.112.152.122
+   18.31.0.190
+   128.232.103.201
+   
+   # pssh -h ips.txt -l irb2 -o /tmp/foo hostname
+   Success on 128.112.152.122:22
+   Success on 18.31.0.190:22
+   Success on 128.232.103.201:22
+   
+   # ls /tmp/foo
+   128.112.152.122  128.232.103.201  18.31.0.190
+   
+   # cat /tmp/foo/*
+   planetlab-1.cs.princeton.edu
+   planetlab1.xeno.cl.cam.ac.uk
+   planetlab1.lcs.mit.edu</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>By default, <TT
+CLASS="CONSTANT"
+>pssh</TT
+> uses at most 32 ssh processes in parallel to
+ssh to the various nodes. (This is somewhat important if you're
+controlling hundreds or thousands of machines.) By default, it also
+uses a timeout of one minute to ssh to a node and obtain a result.
+For ssh commands that take longer than this (e.g., <TT
+CLASS="CONSTANT"
+>sleep 61</TT
+>),
+the -t option can be used.  Note that <TT
+CLASS="CONSTANT"
+>pssh</TT
+> and 
+<TT
+CLASS="CONSTANT"
+>pnuke</TT
+>
+have a default timeout of one minute.  
+<TT
+CLASS="CONSTANT"
+>pscp</TT
+> and <TT
+CLASS="CONSTANT"
+>prsync</TT
+> have no default timeout, but
+one can be specified using the -t option.</P
+></DIV
+><DIV
+CLASS="SECT2"
+><HR><H3
+CLASS="SECT2"
+><A
+NAME="AEN55">3.2. pscp</H3
+><P
+>Here's an example of using <TT
+CLASS="CONSTANT"
+>pscp</TT
+> to copy files in parallel to
+a set of machines.</P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # pscp -h ips.txt -l irb2 /etc/hosts /tmp/hosts
+   Success on 128.112.152.122:22
+   Success on 18.31.0.190:22
+   Success on 128.232.103.201:22</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>Using the -r option will perform a recursive copy for copying
+entire directories.</P
+></DIV
+><DIV
+CLASS="SECT2"
+><HR><H3
+CLASS="SECT2"
+><A
+NAME="AEN61">3.3. pnuke</H3
+><P
+>The <TT
+CLASS="CONSTANT"
+>pnuke</TT
+> command is useful when you want to kill a bunch of
+processes on a set of machines.  For example, suppose you've got a
+bunch of <TT
+CLASS="CONSTANT"
+>java</TT
+> processes running on three nodes that
+you'd like to nuke (let's use the three machines from the <TT
+CLASS="CONSTANT"
+>pssh</TT
+>
+example).  Here you would do the following:</P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # pnuke -h ips.txt -l irb2 java
+   Success on 128.112.152.122:22
+   Success on 18.31.0.190:22
+   Success on 128.232.103.201:22</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>The result of the above is to send <TT
+CLASS="CONSTANT"
+>kill -9</TT
+> to all processes
+owned by <TT
+CLASS="CONSTANT"
+>irb2</TT
+> with the string java in their name (as reported
+by <TT
+CLASS="CONSTANT"
+>ps -ef</TT
+>).</P
+></DIV
+></DIV
+><DIV
+CLASS="SECT1"
+><HR><H2
+CLASS="SECT1"
+><A
+NAME="AEN72">4. Environment Variables</H2
+><P
+>All four programs take similar sets of options.  All of these
+options can be set using the following environment variables:</P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   PSSH_HOSTS
+   PSSH_USER
+   PSSH_PAR
+   PSSH_OUTDIR
+   PSSH_VERBOSE
+   PSSH_OPTIONS</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>Here are some example settings:</P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # export PSSH_HOSTS="/x/bnc/ips.txt"
+   # export PSSH_USER="irb2"
+   # export PSSH_PAR="32"
+   # export PSSH_OUTDIR="/tmp/bar"
+   # export PSSH_VERBOSE="0"
+   # export PSSH_OPTIONS="UserKnownHostsFile /tmp/known_hosts"</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>Using the above settings, the examples can be executed succinctly as:</P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="SCREEN"
+>   # pssh hostname
+   Success on 128.112.152.122:22
+   Success on 18.31.0.190:22
+   Success on 128.232.103.201:22
+   
+   # ls /tmp/bar 
+   128.112.152.122  128.232.103.201  18.31.0.190
+   
+   # cat /tmp/bar/*
+   planetlab-1.cs.princeton.edu
+   planetlab1.xeno.cl.cam.ac.uk
+   planetlab1.lcs.mit.edu
+   
+   # pscp /etc/hosts /tmp/hosts
+   Success on 128.112.152.122:22
+   Success on 18.31.0.190:22
+   Success on 128.232.103.201:22
+   
+   # pnuke java   
+   Success on 128.112.152.122:22
+   Success on 18.31.0.190:22
+   Success on 128.232.103.201:22</PRE
+></FONT
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="SECT1"
+><HR><H2
+CLASS="SECT1"
+><A
+NAME="AEN80">5. Feedback</H2
+><P
+>Send me email if you're having problems, find bugs, or have any random
+comments: <A
+HREF="http://www.theether.org"
+TARGET="_top"
+>Brent Chun</A
+>
+(bnc at theether.org).  Thus
+far, I've primarily been testing this software on <A
+HREF="http://www.planet-lab.org"
+TARGET="_top"
+>PlanetLab</A
+>.</P
+></DIV
+></DIV
+></BODY
+></HTML
+>

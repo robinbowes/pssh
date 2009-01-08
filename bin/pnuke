@@ -13,9 +13,10 @@
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
 
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
-sys.path.append("%s/lib/python" % basedir)
+sys.path.append("%s" % basedir)
 
-from basethread import BaseThread
+import psshlib
+from psshlib.basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = 60
@@ -90,9 +91,9 @@ def parsecmdline(argv):
 def do_pnuke(hosts, ports, users, pattern, flags):
     import os, re
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
-        os.mkdir(flags["outdir"])
+        os.makedirs(flags["outdir"])
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
-        os.mkdir(flags["errdir"])
+        os.makedirs(flags["errdir"])
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
@@ -102,9 +103,9 @@ def do_pnuke(hosts, ports, users, pattern, flags):
         else:
             quietswitch = "-q"
         if flags["options"]:
-            cmd = 'setsid ssh -o \"%s\" %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % (flags["options"], hosts[i], ports[i], users[i], quietswitch, users[i], pattern)
+            cmd = 'ssh -o \"%s\" %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % (flags["options"], hosts[i], ports[i], users[i], quietswitch, users[i], pattern)
         else:
-            cmd = 'setsid ssh %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
+            cmd = 'ssh %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
                    (hosts[i], ports[i], users[i], quietswitch, users[i], pattern)
         t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
@@ -113,7 +114,7 @@ def do_pnuke(hosts, ports, users, pattern, flags):
         t.join()
 
 if __name__ == "__main__":
-    import psshutil
+    from psshlib import psshutil
     args, flags = parsecmdline(sys.argv)
     if len(args) == 0:
         print_usage()

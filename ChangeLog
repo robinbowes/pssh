@@ -1,6 +1,23 @@
+2007-04-11  Brent N. Chun <bnc at theether.org>
+	* Version 1.3.1
+          - Reverted I/O back to 1.2.2. style pssh I/O.
+2007-04-10  Brent N. Chun <bnc at theether.org>
+	* Version 1.3.0
+	  - Added contributions from Deepak Giridharagopal (deepak at
+  	    brownman.org)
+            * Added ANSI color to pssh, pscp, etc. output.
+	    * Each status message now includes a timestamp.
+	    * Failures now indicate the cause (e.g., timeout, etc.)
+	    * Intermediate directories are created as needed for output.
+	    * Removed use of setsid in shell exec.
+	    * Using Exception objects rather than raw strings.
+	    * Added support for piping stdin to each ssh process.
+	    * Added -i option to pssh for "inlining" output to stdout.
+	    * Added Python setup.py file for a standard install.
+	  - Switched to BSD license.
 2006-06-18  Brent N. Chun <bnc at theether.org>
 	* Version 1.2.2
-	  - Added patch from Dan Silverstein (dans@pch.net) to fix
+	  - Added patch from Dan Silverstein (dans at pch.net) to fix
 	    parsecmdline bug.
 2005-12-31  Brent N. Chun <bnc at theether.org>
 	* Version 1.2.1
@@ -11,17 +28,17 @@
 	  - make install and make uninstall now work as
 	    expected for installations from source.
 2004-11-10  Brent N. Chun <bnc at intel-research.net>
-	* Added patch from Dave Barr <barr@google.com>
+	* Added patch from Dave Barr <barr at google.com>
 	  - Adds -a, -z flags to prsync
 2004-10-05  Brent N. Chun <bnc at intel-research.net>
 	* Default user is now current user in all programs (on 
-	  suggestion from Jim Wight <j.k.wight@newcastle.ac.uk>).
+	  suggestion from Jim Wight <j.k.wight at newcastle.ac.uk>).
 	* Fixed path typo on prsync from 1.1.0 release
 	* Version 1.1.1
 2004-10-04  Brent N. Chun <bnc at intel-research.net>
-	* Added patch from Dave Barr <barr@google.com>
+	* Added patch from Dave Barr <barr at google.com>
 	  - Adds an ssh options flag (-O) to prsync
-	* Added patch from Chad Yoshikawa <chadyoshikawa@gmail.com>
+	* Added patch from Chad Yoshikawa <chadyoshikawa at gmail.com>
 	  - Adds a print to stdout flag (-P) to pssh
 	* Version 1.1.0
 2004-08-21  Brent N. Chun <bnc at intel-research.net>

@@ -16,9 +16,10 @@
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
 
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
-sys.path.append("%s/lib/python" % basedir)
+sys.path.append("%s" % basedir)
 
-from basethread import BaseThread
+import psshlib
+from psshlib.basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = 60
@@ -34,7 +35,8 @@ def print_usage():
     print "  -t --timeout timeout in seconds to do ssh to a host (OPTIONAL)"
     print "  -v --verbose turn on warning and diagnostic messages (OPTIONAL)"
     print "  -O --options SSH options (OPTIONAL)"
-    print "  -P --print   print output as we go (OPTIONAL)"
+    print "  -P --print   print output as we get it (OPTIONAL)"
+    print "  -i --inline  inline aggregated output for each server (OPTIONAL)"
     print
     print "Example: pssh -h nodes.txt -l irb2 -o /tmp/foo uptime"
     print
@@ -59,12 +61,12 @@ def read_envvars(flags):
 
 def parsecmdline(argv):
     import getopt
-    shortopts = "h:l:p:o:e:t:vO:P"
+    shortopts = "h:l:p:o:e:t:vO:P:i"
     longopts = [ "hosts", "user", "par", "outdir", "errdir", "timeout",
-                 "verbose", "options", "print" ]
+                 "verbose", "options", "print", "inline" ]
     flags = { "hosts" : None, "user" : None, "par" : _DEFAULT_PARALLELISM,
               "outdir" : None, "errdir" : None, "timeout" : _DEFAULT_TIMEOUT,
-              "verbose" : None, "options" : None, "print" : None }
+              "verbose" : None, "options" : None, "print" : None, "inline": None }
     read_envvars(flags)
     if not flags["user"]: flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
@@ -87,18 +89,28 @@ def parsecmdline(argv):
             flags["options"] = v
         elif o in ("-P", "--print"):
             flags["print"] = 1
+        elif o in ("-i", "--inline"):
+            flags["inline"] = 1
     # Required flags
     if not flags["hosts"]:
         print_usage()
         sys.exit(3)
     return args, flags
 
+def buffer_input():
+    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
+    try:
+        return sys.stdin.read()
+    except IOError: # Stdin contained no information
+        return ''
+
 def do_pssh(hosts, ports, users, cmdline, flags):
     import os, re
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
-        os.mkdir(flags["outdir"])
+        os.makedirs(flags["outdir"])
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
-        os.mkdir(flags["errdir"])
+        os.makedirs(flags["errdir"])
+    input = buffer_input()
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
@@ -108,20 +120,20 @@ def do_pssh(hosts, ports, users, cmdline, flags):
         else:
             quietswitch = "-q"
         if flags["options"]:
-            cmd = "setsid ssh -o \"%s\" %s -p %s -l %s %s \"%s\"" % \
+            cmd = "ssh -o \"%s\" %s -p %s -l %s %s \"%s\"" % \
                        (flags["options"], hosts[i], ports[i], users[i],
                         quietswitch, cmdline)
         else:
-            cmd = "setsid ssh %s -p %s -l %s %s \"%s\"" % \
+            cmd = "ssh %s -p %s -l %s %s \"%s\"" % \
                        (hosts[i], ports[i], users[i], quietswitch, cmdline)
-        t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
+        t = BaseThread(hosts[i], ports[i], cmd, flags, sem, input)
         t.start()
         threads.append(t)
     for t in threads:
         t.join()
 
-if __name__ == "__main__":
-    import psshutil
+def main():
+    from psshlib import psshutil
     args, flags = parsecmdline(sys.argv)
     if len(args) == 0:
         print_usage()
@@ -132,3 +144,6 @@ if __name__ == "__main__":
     signal.signal(signal.SIGCHLD, psshutil.reaper)
     os.setpgid(0, 0)
     do_pssh(hosts, ports, users, cmdline, flags)
+
+if __name__ == "__main__":
+    main()

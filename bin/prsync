@@ -14,9 +14,10 @@
 import fcntl, os, popen2, pwd, select, signal, sys, threading, time
 
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
-sys.path.append("%s/lib/python" % basedir)
+sys.path.append("%s" % basedir)
 
-from basethread import BaseThread
+import psshlib
+from psshlib.basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = sys.maxint # "infinity" by default
@@ -97,9 +98,9 @@ def parsecmdline(argv):
 def do_prsync(hosts, ports, users, local, remote, flags):
     import os
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
-        os.mkdir(flags["outdir"])
+        os.makedirs(flags["outdir"])
     if flags["errdir"] and not os.path.exists(flags["errdir"]):
-        os.mkdir(flags["errdir"])
+        os.makedirs(flags["errdir"])
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
@@ -117,9 +118,9 @@ def do_prsync(hosts, ports, users, local, remote, flags):
         else:
             compressswitch = ""
         if flags["options"]:
-            cmd = "setsid rsync --port %d %s %s %s -v -e \"ssh -o %s\" %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, flags["options"], local, users[i], hosts[i], remote)
+            cmd = "rsync --port %d %s %s %s -v -e \"ssh -o %s\" %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, flags["options"], local, users[i], hosts[i], remote)
         else:
-            cmd = "setsid rsync --port %d %s %s %s -v -e ssh %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, local, users[i], hosts[i], remote)
+            cmd = "rsync --port %d %s %s %s -v -e ssh %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, local, users[i], hosts[i], remote)
         t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
         threads.append(t)
@@ -127,7 +128,8 @@ def do_prsync(hosts, ports, users, local, remote, flags):
         t.join()
 
 if __name__ == "__main__":
-    import os, pwd, re, psshutil
+    import os, pwd, re
+    from psshlib import psshutil
     args, flags = parsecmdline(sys.argv)
     if len(args) != 2:
         print_usage()
