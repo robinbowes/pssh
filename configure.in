@@ -10,7 +10,7 @@ AC_INIT(pssh.spec.in)
 dnl
 dnl Sets PACKAGE and VERSION defines
 dnl
-AM_INIT_AUTOMAKE(pssh,0.2.3)
+AM_INIT_AUTOMAKE(pssh,0.2.5)
 
 dnl
 dnl Generate spec file

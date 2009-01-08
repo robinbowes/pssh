@@ -8,7 +8,7 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pnuke,v 1.6 2003/11/13 09:10:17 bnc Exp $
+# $Id: pnuke,v 1.7 2003/11/20 12:44:58 bnc Exp $
 #
 import fcntl, os, popen2, select, signal, sys, threading, time
 sys.path.append("/usr/local/lib/python2.2")
@@ -26,10 +26,10 @@ class nuke_thread(threading.Thread):
         else:
             quietswitch = "-q"
         if flags["options"]:
-            self.cmd = 'ssh -o \"%s\" %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
+            self.cmd = 'setsid ssh -o \"%s\" %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
                    (flags["options"], host, port, user, quietswitch, user, pattern)
         else:
-            self.cmd = 'ssh %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
+            self.cmd = 'setsid ssh %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
                    (host, port, user, quietswitch, user, pattern)
         self.sem = sem
 
@@ -58,6 +58,9 @@ class nuke_thread(threading.Thread):
             sys.stdout.flush()
         except:
             print "Error on %s:%d" % (self.host, self.port)
+        try:
+            os.kill(-child.pid, signal.SIGKILL)
+        except: pass
         self.sem.release()
         
 def print_usage():
@@ -117,10 +120,14 @@ def parsecmdline(argv):
 def do_pnuke(hosts, ports, users, pattern, flags):
     import os, re
     sem = threading.Semaphore(flags["par"])
+    threads = []
     for i in range(len(hosts)):
         sem.acquire()
         t = nuke_thread(hosts[i], ports[i], users[i], pattern, flags, sem)
         t.start()
+        threads.append(t)        
+    for t in threads:
+        t.join()
 
 if __name__ == "__main__":
     import psshutil
@@ -132,4 +139,7 @@ if __name__ == "__main__":
     cmdline = " ".join(args)
     hosts, ports, users = psshutil.read_hosts(flags["hosts"])
     psshutil.patch_users(hosts, ports, users, flags["user"])
+    signal.signal(signal.SIGCHLD, psshutil.reaper)
+    os.setpgid(0, 0)
     do_pnuke(hosts, ports, users, pattern, flags)
+

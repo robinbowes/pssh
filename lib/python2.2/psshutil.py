@@ -1,4 +1,13 @@
-import sys
+import os, signal, sys
+
+def reaper(signo, frame):
+    while 1:
+        try:
+            pid, status = os.waitpid(-1, os.WNOHANG)
+        except:
+            break
+        if not pid:
+            break
 
 def read_hosts(pathname):
     """

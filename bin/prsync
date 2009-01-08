@@ -9,7 +9,7 @@
 #
 # Created: 16 August 2003
 #
-# $Id: prsync,v 1.5 2003/11/13 09:10:17 bnc Exp $
+# $Id: prsync,v 1.6 2003/11/20 12:44:58 bnc Exp $
 #
 import fcntl, os, popen2, select, signal, sys, threading, time
 sys.path.append("/usr/local/lib/python2.2")
@@ -24,10 +24,10 @@ class rsync_thread(threading.Thread):
         self.port = port
         self.flags = flags
         if flags["recursive"]:
-            self.cmd = "rsync --port %d -rv -e ssh %s %s@%s:%s" % \
+            self.cmd = "setsid rsync --port %d -rv -e ssh %s %s@%s:%s" % \
                        (port, local, user, host, remote)
         else:
-            self.cmd = "rsync --port %d -v -e ssh %s %s@%s:%s" % \
+            self.cmd = "setsid rsync --port %d -v -e ssh %s %s@%s:%s" % \
                        (port, local, user, host, remote)
         self.sem = sem
 
@@ -62,6 +62,9 @@ class rsync_thread(threading.Thread):
             if self.flags["outdir"]:
                 pathname = "%s/%s" % (self.flags["outdir"], self.host)
                 open(pathname, "w") # Create 0 byte file on error
+        try:
+            os.kill(-child.pid, signal.SIGKILL)
+        except: pass
         self.sem.release()
         
 def print_usage():
@@ -125,11 +128,15 @@ def do_prsync(hosts, ports, users, local, remote, flags):
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
         os.mkdir(flags["outdir"])
     sem = threading.Semaphore(flags["par"])
+    threads = []
     for i in range(len(hosts)):
         sem.acquire()
         t = rsync_thread(hosts[i], ports[i], users[i], local, remote,
                          flags, sem)
         t.start()
+        threads.append(t)        
+    for t in threads:
+        t.join()
 
 if __name__ == "__main__":
     import os, pwd, re, psshutil
@@ -144,4 +151,7 @@ if __name__ == "__main__":
         sys.exit(3)
     hosts, ports, users = psshutil.read_hosts(flags["hosts"])
     psshutil.patch_users(hosts, ports, users, flags["user"])
+    signal.signal(signal.SIGCHLD, psshutil.reaper)
+    os.setpgid(0, 0)
     do_prsync(hosts, ports, users, local, remote, flags)
+
