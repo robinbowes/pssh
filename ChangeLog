@@ -1,3 +1,9 @@
+2004-08-21  Brent N. Chun <bnc at intel-research.net>
+	* All cmds now take -o, -e for stdout, stderr
+	* Checking return values for all cmds
+	* Factored common thread structure out of all cmds
+	* Changed pslurp's dir for local to -L, rather than -o (stdout)
+	* Version 1.0.0
 2003-11-20  Brent N. Chun <bnc at intel-research.net>
 	* Added handler for SIGCHLD
 	* Wait for all threads before returning to main thread

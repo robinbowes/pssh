@@ -27,6 +27,8 @@ install -D -m 755 bin/prsync /usr/local/bin/prsync
 install -D -m 755 bin/pslurp /usr/local/bin/pslurp
 install -D -m 644 lib/python2.2/psshutil.py \
                   /usr/local/lib/python2.2/psshutil.py
+install -D -m 644 lib/python2.2/basethread.py \
+                  /usr/local/lib/python2.2/basethread.py
 
 %clean
 
@@ -38,3 +40,4 @@ install -D -m 644 lib/python2.2/psshutil.py \
 /usr/local/bin/prsync
 /usr/local/bin/pslurp
 /usr/local/lib/python2.2/psshutil.py
+/usr/local/lib/python2.2/basethread.py

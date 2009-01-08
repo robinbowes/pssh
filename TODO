@@ -1,3 +1,7 @@
+* Add '=' to longopts e.g., "hosts="
+* Add retries
+* Look at os.kill with normal child.pid (no -), *maybe* need -
+  - e.g., transients on PlanetLab
 * Refactor code
   - e.g., run is same for pssh/rsync, same for pscp/pnuke
 * Change output file format

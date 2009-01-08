@@ -1,10 +1,10 @@
 Summary: Parallel SSH tools
 Name: pssh
-Version: 0.2.5
+Version: 1.0.0
 Release: 1
 Copyright: GPL
 Group: system
-Source: pssh-0.2.5.tar.gz 
+Source: pssh-1.0.0.tar.gz 
 Requires: openssh
 Requires: python2
 Packager: Brent Chun <bnc@intel-research.net>
@@ -27,6 +27,8 @@ install -D -m 755 bin/prsync /usr/local/bin/prsync
 install -D -m 755 bin/pslurp /usr/local/bin/pslurp
 install -D -m 644 lib/python2.2/psshutil.py \
                   /usr/local/lib/python2.2/psshutil.py
+install -D -m 644 lib/python2.2/basethread.py \
+                  /usr/local/lib/python2.2/basethread.py
 
 %clean
 
@@ -38,3 +40,4 @@ install -D -m 644 lib/python2.2/psshutil.py \
 /usr/local/bin/prsync
 /usr/local/bin/pslurp
 /usr/local/lib/python2.2/psshutil.py
+/usr/local/lib/python2.2/basethread.py

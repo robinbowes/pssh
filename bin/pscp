@@ -10,71 +10,25 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pscp,v 1.6 2003/11/13 09:10:17 bnc Exp $
+# $Id: pscp,v 1.8 2003/11/20 13:09:25 bnc Exp $
 #
 import fcntl, os, popen2, select, signal, sys, threading, time
 sys.path.append("/usr/local/lib/python2.2")
+from basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
-_DEFAULT_TIMEOUT     = None  # No timeout by default
-
-class scp_thread(threading.Thread):
-    def __init__(self, host, port, user, local, remote, flags, sem):
-        threading.Thread.__init__(self)
-        self.host = host
-        self.port = port
-        if flags["options"] and flags["recursive"]:
-            self.cmd = "setsid scp -o \"%s\" -qrC -P %d %s %s@%s:%s" % \
-                       (flags["options"], port, local, user, host, remote)
-        elif flags["options"] and not flags["recursive"]:
-            self.cmd = "setsid scp -o \"%s\" -qC -P %d %s %s@%s:%s" % \
-                       (flags["options"], port, local, user, host, remote)
-        elif not flags["options"] and flags["recursive"]:
-            self.cmd = "setsid scp -qrC -P %d %s %s@%s:%s" % \
-                       (port, local, user, host, remote)
-        else:
-            self.cmd = "setsid scp -qC -P %d %s %s@%s:%s" % \
-                       (port, local, user, host, remote)
-        self.sem = sem
-
-    def run(self):
-        try:
-            child = popen2.Popen3(self.cmd)
-            cstdout = child.fromchild
-            fcntl.fcntl(cstdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
-            start = time.time()
-            while 1:
-                if flags["timeout"]:
-                    timeout = flags["timeout"] - (time.time() - start)
-                    if timeout <= 0:
-                        raise "Timeout on %s:%d" % (self.host, self.port)
-                else:
-                    timeout = flags["timeout"]
-                r, w, e = select.select([cstdout, ], [], [], timeout)
-                try:
-                    chunk = cstdout.read()
-                    if len(chunk) == 0:
-                        break
-                except:
-                    os.kill(child.pid, signal.SIGKILL)
-                    raise
-            print "Success on %s:%d" % (self.host, self.port)
-            sys.stdout.flush()
-        except:
-            print "Error on %s:%d" % (self.host, self.port)
-        try:
-            os.kill(-child.pid, signal.SIGKILL)
-        except: pass
-        self.sem.release()
+_DEFAULT_TIMEOUT     = sys.maxint # "infinity" by default
 
 def print_usage():
     print "Usage: pscp [OPTIONS] -h hosts.txt local remote"
     print
-    print "  -h --hosts     hosts file (each line \"host[:port] [login]\")"
     print "  -r --recursive recusively copy directories (OPTIONAL)"  
+    print "  -h --hosts     hosts file (each line \"host[:port] [login]\")"
     print "  -l --user      username (OPTIONAL)"
     print "  -p --par       max number of parallel threads (OPTIONAL)"
-    print "  -t --timeout   timeout in seconds to do scp to a host (OPTIONAL)"    
+    print "  -o --outdir    output directory for stdout files (OPTIONAL)"    
+    print "  -e --errdir    output directory for stderr files (OPTIONAL)"    
+    print "  -t --timeout   timeout in seconds to do scp to a host (OPTIONAL)"
     print "  -O --options   SSH options (OPTIONAL)"    
     print
     print "Example: pscp -h hosts.txt -l irb2 foo.txt /home/irb2/foo.txt" 
@@ -87,6 +41,10 @@ def read_envvars(flags):
         flags["user"] = os.getenv("PSSH_USER")
     if os.getenv("PSSH_PAR"):
         flags["par"] = int(os.getenv("PSSH_PAR"))
+    if os.getenv("PSSH_OUTDIR"):
+        flags["outdir"] = os.getenv("PSSH_OUTDIR")
+    if os.getenv("PSSH_ERRDIR"):
+        flags["errdir"] = os.getenv("PSSH_ERRDIR")        
     if os.getenv("PSSH_TIMEOUT"):
         flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))
     if os.getenv("PSSH_OPTIONS"):
@@ -94,22 +52,27 @@ def read_envvars(flags):
 
 def parsecmdline(argv):
     import getopt
-    shortopts = "h:rl:p:t:O:"
-    longopts = [ "hosts" , "recursive", "user", "par", "timeout", "options" ]
-    flags = { "hosts" : None, "recursive" : None, "user" : None,
-              "par" : _DEFAULT_PARALLELISM, "timeout" : _DEFAULT_TIMEOUT,
-              "options" : None }
+    shortopts = "rh:l:p:o:e:t:O:"
+    longopts = [ "recursive", "hosts" , "user", "par", "outdir", "errdir",
+                 "timeout", "options" ]
+    flags = { "recursive" : None, "hosts" : None, "user" : None,
+              "par" : _DEFAULT_PARALLELISM, "outdir" : None, "errdir" : None,
+              "timeout" : _DEFAULT_TIMEOUT, "options" : None }
     read_envvars(flags)
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
-        if o in ("-h", "--hosts"):
-            flags["hosts"] = v
-        elif o in ("-r", "--recursive"):
+        if o in ("-r", "--recursive"):
             flags["recursive"] = 1
+        elif o in ("-h", "--hosts"):
+            flags["hosts"] = v
         elif o in ("-l", "--user"):
             flags["user"] = v
         elif o in ("-p", "--par"):
             flags["par"] = int(v)
+        elif o in ("-o", "--outdir"):
+            flags["outdir"] = v            
+        elif o in ("-e", "--errdir"):
+            flags["errdir"] = v
         elif o in ("-t", "--timeout"):
             flags["timeout"] = int(v)
         elif o in ("-O", "--options"):
@@ -122,12 +85,29 @@ def parsecmdline(argv):
 
 def do_pscp(hosts, ports, users, local, remote, flags):
     import os
+    if flags["outdir"] and not os.path.exists(flags["outdir"]):
+        os.mkdir(flags["outdir"])
+    if flags["errdir"] and not os.path.exists(flags["errdir"]):
+        os.mkdir(flags["errdir"])    
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
         sem.acquire()
-        t = scp_thread(hosts[i], ports[i], users[i], local, remote, 
-                       flags, sem)
+        if flags["options"] and flags["recursive"]:
+            cmd = "setsid scp -o \"%s\" -qrC -P %d %s %s@%s:%s" % \
+                  (flags["options"], ports[i], local, users[i],
+                   hosts[i], remote)
+        elif flags["options"] and not flags["recursive"]:
+            cmd = "setsid scp -o \"%s\" -qC -P %d %s %s@%s:%s" % \
+                  (flags["options"], ports[i], local, users[i],
+                   hosts[i], remote)
+        elif not flags["options"] and flags["recursive"]:
+            cmd = "setsid scp -qrC -P %d %s %s@%s:%s" % \
+                  (ports[i], local, users[i], hosts[i], remote)
+        else:
+            cmd = "setsid scp -qC -P %d %s %s@%s:%s" % \
+                  (ports[i], local, users[i], hosts[i], remote)
+        t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
         threads.append(t)        
     for t in threads:

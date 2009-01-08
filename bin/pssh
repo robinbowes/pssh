@@ -11,68 +11,15 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pssh,v 1.6 2003/11/13 09:10:17 bnc Exp $
+# $Id: pssh,v 1.8 2003/11/20 13:09:25 bnc Exp $
 #
 import fcntl, os, popen2, select, signal, sys, threading, time
 sys.path.append("/usr/local/lib/python2.2")
+from basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = 60
 
-class ssh_thread(threading.Thread):
-    def __init__(self, host, port, user, cmdline, flags, sem):
-        threading.Thread.__init__(self)
-        self.host = host
-        self.port = port
-        if flags["verbose"]:
-            quietswitch = ""
-        else:
-            quietswitch = "-q"
-        if flags["options"]:
-            self.cmd = "setsid ssh -o \"%s\" %s -p %s -l %s %s \"%s\"" % \
-                       (flags["options"], host, port, user, quietswitch, cmdline)
-        else:
-            self.cmd = "setsid ssh %s -p %s -l %s %s \"%s\"" % \
-                       (host, port, user, quietswitch, cmdline)
-        self.flags = flags
-        self.sem = sem
-        
-    def run(self):
-        try:
-            child = popen2.Popen3(self.cmd)
-            cstdout = child.fromchild
-            fcntl.fcntl(cstdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
-            chunks = []
-            start = time.time()
-            while 1:
-                timeout = flags["timeout"] - (time.time() - start)
-                if timeout <= 0:
-                    raise "Timeout on %s:%d" % (self.host, self.port)
-                r, w, e = select.select([cstdout, ], [], [], timeout)
-                try:
-                    chunk = cstdout.read()
-                    if len(chunk) == 0:
-                        break
-                    chunks.append(chunk)
-                except:
-                    os.kill(child.pid, signal.SIGKILL)                
-                    raise
-            data = "".join(chunks)
-            if self.flags["outdir"]:
-                pathname = "%s/%s" % (self.flags["outdir"], self.host)
-                open(pathname, "w").write(data)
-            print "Success on %s:%d" % (self.host, self.port)
-            sys.stdout.flush()
-        except:
-            print "Error on %s:%d" % (self.host, self.port)
-            if self.flags["outdir"]:
-                pathname = "%s/%s" % (self.flags["outdir"], self.host)
-                open(pathname, "w") # Create 0 byte file on error
-        try:
-            os.kill(-child.pid, signal.SIGKILL)
-        except: pass
-        self.sem.release()
-        
 def print_usage():
     print "Usage: pssh [OPTIONS] -h hosts.txt prog [arg0] .."
     print
@@ -80,6 +27,7 @@ def print_usage():
     print "  -l --user    username (OPTIONAL)"
     print "  -p --par     max number of parallel threads (OPTIONAL)"
     print "  -o --outdir  output directory for stdout files (OPTIONAL)"
+    print "  -e --errdir  output directory for stderr files (OPTIONAL)"
     print "  -t --timeout timeout in seconds to do ssh to a host (OPTIONAL)"
     print "  -v --verbose turn on warning and diagnostic messages (OPTIONAL)"
     print "  -O --options SSH options (OPTIONAL)"
@@ -96,6 +44,8 @@ def read_envvars(flags):
         flags["par"] = int(os.getenv("PSSH_PAR"))
     if os.getenv("PSSH_OUTDIR"):
         flags["outdir"] = os.getenv("PSSH_OUTDIR")
+    if os.getenv("PSSH_ERRDIR"):
+        flags["errdir"] = os.getenv("PSSH_ERRDIR")
     if os.getenv("PSSH_TIMEOUT"):
         flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))
     if os.getenv("PSSH_VERBOSE"): # "0" or "1"
@@ -105,12 +55,12 @@ def read_envvars(flags):
 
 def parsecmdline(argv):
     import getopt
-    shortopts = "h:l:p:o:t:vO:"
-    longopts = [ "hosts", "user", "par", "outdir", "timeout",
+    shortopts = "h:l:p:o:e:t:vO:"
+    longopts = [ "hosts", "user", "par", "outdir", "errdir", "timeout",
                  "verbose", "options" ]
     flags = { "hosts" : None, "user" : None, "par" : _DEFAULT_PARALLELISM,
-              "outdir" : None, "timeout" : _DEFAULT_TIMEOUT, "verbose" : None,
-              "options" : None }
+              "outdir" : None, "errdir" : None, "timeout" : _DEFAULT_TIMEOUT,
+              "verbose" : None, "options" : None }
     read_envvars(flags)
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
@@ -122,6 +72,8 @@ def parsecmdline(argv):
             flags["par"] = int(v)
         elif o in ("-o", "--outdir"):
             flags["outdir"] = v
+        elif o in ("-e", "--errdir"):
+            flags["errdir"] = v
         elif o in ("-t", "--timeout"):
             flags["timeout"] = int(v)
         elif o in ("-v", "--verbose"):
@@ -138,25 +90,28 @@ def do_pssh(hosts, ports, users, cmdline, flags):
     import os, re
     if flags["outdir"] and not os.path.exists(flags["outdir"]):
         os.mkdir(flags["outdir"])
+    if flags["errdir"] and not os.path.exists(flags["errdir"]):
+        os.mkdir(flags["errdir"])
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
         sem.acquire()
-        t = ssh_thread(hosts[i], ports[i], users[i], cmdline, flags, sem)
+        if flags["verbose"]:
+            quietswitch = ""
+        else:
+            quietswitch = "-q"
+        if flags["options"]:
+            cmd = "setsid ssh -o \"%s\" %s -p %s -l %s %s \"%s\"" % \
+                       (flags["options"], hosts[i], ports[i], users[i],
+                        quietswitch, cmdline)
+        else:
+            cmd = "setsid ssh %s -p %s -l %s %s \"%s\"" % \
+                       (hosts[i], ports[i], users[i], quietswitch, cmdline)
+        t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
         threads.append(t)        
     for t in threads:
         t.join()
-
-def write_stdout(dir, output):
-    cwd = os.getcwd()
-    os.chdir(dir)
-    try:
-        for h in output: # Output files named by host (or IP)
-            data = output[h]
-            open(h, "w").write(data)
-    finally:
-        os.chdir(cwd)
 
 if __name__ == "__main__":
     import psshutil
@@ -170,4 +125,3 @@ if __name__ == "__main__":
     signal.signal(signal.SIGCHLD, psshutil.reaper)
     os.setpgid(0, 0)
     do_pssh(hosts, ports, users, cmdline, flags)
-

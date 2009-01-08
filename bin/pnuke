@@ -8,67 +8,23 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pnuke,v 1.7 2003/11/20 12:44:58 bnc Exp $
+# $Id: pnuke,v 1.8 2003/11/20 13:09:24 bnc Exp $
 #
 import fcntl, os, popen2, select, signal, sys, threading, time
 sys.path.append("/usr/local/lib/python2.2")
+from basethread import BaseThread
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = 60
 
-class nuke_thread(threading.Thread):
-    def __init__(self, host, port, user, pattern, flags, sem):
-        threading.Thread.__init__(self)
-        self.host = host
-        self.port = port
-        if flags["verbose"]:
-            quietswitch = ""
-        else:
-            quietswitch = "-q"
-        if flags["options"]:
-            self.cmd = 'setsid ssh -o \"%s\" %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
-                   (flags["options"], host, port, user, quietswitch, user, pattern)
-        else:
-            self.cmd = 'setsid ssh %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
-                   (host, port, user, quietswitch, user, pattern)
-        self.sem = sem
-
-    def run(self):
-        try:
-            child = popen2.Popen3(self.cmd)
-            cstdout = child.fromchild
-            fcntl.fcntl(cstdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
-            start = time.time()
-            while 1:
-                if flags["timeout"]:
-                    timeout = flags["timeout"] - (time.time() - start)
-                    if timeout <= 0:
-                        raise "Timeout on %s:%d" % (self.host, self.port)
-                else:
-                    timeout = flags["timeout"]
-                r, w, e = select.select([cstdout, ], [], [], timeout)
-                try:
-                    chunk = cstdout.read()
-                    if len(chunk) == 0:
-                        break
-                except:
-                    os.kill(child.pid, signal.SIGKILL)                
-                    raise
-            print "Success on %s:%d" % (self.host, self.port)
-            sys.stdout.flush()
-        except:
-            print "Error on %s:%d" % (self.host, self.port)
-        try:
-            os.kill(-child.pid, signal.SIGKILL)
-        except: pass
-        self.sem.release()
-        
 def print_usage():
     print "Usage: pnuke [OPTIONS] -h hosts.txt pattern"
     print
     print "  -h --hosts   hosts file (each line \"host[:port] [user]\")"
     print "  -l --user    username (OPTIONAL)"
     print "  -p --par     max number of parallel threads (OPTIONAL)"
+    print "  -o --outdir  output directory for stdout files (OPTIONAL)"
+    print "  -e --errdir  output directory for stderr files (OPTIONAL)"    
     print "  -t --timeout timeout in seconds to do ssh to a host (OPTIONAL)"
     print "  -v --verbose turn on warning and diagnostic messages (OPTIONAL)"    
     print "  -O --options SSH options (OPTIONAL)"    
@@ -83,6 +39,10 @@ def read_envvars(flags):
         flags["user"] = os.getenv("PSSH_USER")
     if os.getenv("PSSH_PAR"):
         flags["par"] = int(os.getenv("PSSH_PAR"))
+    if os.getenv("PSSH_OUTDIR"):
+        flags["outdir"] = os.getenv("PSSH_OUTDIR")
+    if os.getenv("PSSH_ERRDIR"):
+        flags["errdir"] = os.getenv("PSSH_ERRDIR")        
     if os.getenv("PSSH_TIMEOUT"):
         flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))
     if os.getenv("PSSH_VERBOSE"): # "0" or "1"
@@ -92,10 +52,12 @@ def read_envvars(flags):
 
 def parsecmdline(argv):
     import getopt
-    shortopts = "h:l:p:t:vO:"
-    longopts = [ "hosts", "user", "par", "timeout", "verbose", "options" ]
+    shortopts = "h:l:p:o:e:t:vO:"
+    longopts = [ "hosts", "user", "par", "outdir", "errdir", "timeout",
+                 "verbose", "options" ]
     flags = { "hosts" : None, "user" : None, "par" : _DEFAULT_PARALLELISM,
-              "timeout" : _DEFAULT_TIMEOUT, "verbose" : None, "options" : None }
+              "outdir" : None, "errdir" : None, "timeout" : _DEFAULT_TIMEOUT,
+              "verbose" : None, "options" : None }
     read_envvars(flags)            
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
@@ -105,6 +67,10 @@ def parsecmdline(argv):
             flags["user"] = v
         elif o in ("-p", "--par"):
             flags["par"] = int(v)
+        elif o in ("-o", "--outdir"):
+            flags["outdir"] = v            
+        elif o in ("-e", "--errdir"):
+            flags["errdir"] = v            
         elif o in ("-t", "--timeout"):
             flags["timeout"] = int(v)
         elif o in ("-v", "--verbose"):
@@ -119,11 +85,24 @@ def parsecmdline(argv):
 
 def do_pnuke(hosts, ports, users, pattern, flags):
     import os, re
+    if flags["outdir"] and not os.path.exists(flags["outdir"]):
+        os.mkdir(flags["outdir"])    
+    if flags["errdir"] and not os.path.exists(flags["errdir"]):
+        os.mkdir(flags["errdir"])    
     sem = threading.Semaphore(flags["par"])
     threads = []
     for i in range(len(hosts)):
         sem.acquire()
-        t = nuke_thread(hosts[i], ports[i], users[i], pattern, flags, sem)
+        if flags["verbose"]:
+            quietswitch = ""
+        else:
+            quietswitch = "-q"
+        if flags["options"]:
+            cmd = 'setsid ssh -o \"%s\" %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % (flags["options"], hosts[i], ports[i], users[i], quietswitch, users[i], pattern)
+        else:
+            cmd = 'setsid ssh %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
+                   (hosts[i], ports[i], users[i], quietswitch, users[i], pattern)
+        t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
         threads.append(t)        
     for t in threads:
