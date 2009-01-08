@@ -9,7 +9,7 @@
 #
 # Created: 16 August 2003
 #
-# $Id: prsync,v 1.7 2003/11/20 13:09:24 bnc Exp $
+# $Id: prsync,v 1.1.1.1 2004/08/21 20:27:46 bnc Exp $
 #
 import fcntl, os, popen2, select, signal, sys, threading, time
 sys.path.append("/nfshome/bnc/cvs/bnc/pssh/lib/python2.2")
@@ -28,6 +28,7 @@ def print_usage():
     print "  -o --outdir    output directory for stdout files (OPTIONAL)"        
     print "  -e --errdir    output directory for stderr files (OPTIONAL)"        
     print "  -t --timeout   timeout in seconds to do rsync to a host (OPTIONAL)"
+    print "  -O --options SSH options (OPTIONAL)"
     print
     print "Example: prsync -r -h hosts.txt -l irb2 foo " + \
           "/home/irb2/foo"
@@ -46,15 +47,17 @@ def read_envvars(flags):
         flags["errdir"] = os.getenv("PSSH_ERRDIR")                
     if os.getenv("PSSH_TIMEOUT"):
         flags["timeout"] = int(os.getenv("PSSH_TIMEOUT"))        
+    if os.getenv("PSSH_OPTIONS"):
+        flags["options"] = os.getenv("PSSH_OPTIONS")
 
 def parsecmdline(argv):
     import getopt
-    shortopts = "rh:l:p:o:e:t:"
+    shortopts = "rh:l:p:o:e:t:O:"
     longopts = [ "recursive", "hosts", "user", "par", "outdir", "errdir",
-                 "timeout" ]
+                 "timeout", "options" ]
     flags = { "recursive" : None, "hosts" : None, "user" : None,
               "par" : _DEFAULT_PARALLELISM, "outdir" : None,
-              "errdir" : None, "timeout" : _DEFAULT_TIMEOUT }
+	      "errdir" : None, "timeout" : _DEFAULT_TIMEOUT, "options" : None }
     read_envvars(flags)
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
@@ -69,9 +72,11 @@ def parsecmdline(argv):
         elif o in ("-o", "--outdir"):
             flags["outdir"] = v
         elif o in ("-e", "--errdir"):
-            flags["errdir"] = v            
+            flags["errdir"] = v
         elif o in ("-t", "--timeout"):
-            flags["timeout"] = int(v)            
+            flags["timeout"] = int(v)
+        elif o in ("-O", "--options"):
+            flags["options"] = v
     # Required flags
     if not flags["hosts"]:
         print_usage()
@@ -89,11 +94,16 @@ def do_prsync(hosts, ports, users, local, remote, flags):
     for i in range(len(hosts)):
         sem.acquire()
         if flags["recursive"]:
-            cmd = "setsid rsync --port %d -rv -e ssh %s %s@%s:%s" % \
-                  (ports[i], local, users[i], hosts[i], remote)
+            recursiveswitch = "-r"
         else:
-            cmd = "setsid rsync --port %d -v -e ssh %s %s@%s:%s" % \
-                  (ports[i], local, users[i], hosts[i], remote)
+            recursiveswitch = ""
+        if flags["options"]:
+            cmd = "setsid rsync --port %d %s -v -e \"ssh -o %s\" %s %s@%s:%s" % \
+                  (ports[i], recursiveswitch, flags["options"], local, users[i],
+                   hosts[i], remote)
+        else:
+            cmd = "setsid rsync --port %d %s -v -e ssh %s %s@%s:%s" % \
+                  (ports[i], recursiveswitch, local, users[i], hosts[i], remote)
         t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
         t.start()
         threads.append(t)        

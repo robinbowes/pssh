@@ -1,3 +1,8 @@
+2004-10-04  Brent N. Chun <bnc at intel-research.net>
+	* Added patch from Dave Barr <barr@google.com>
+	  - Adds an ssh options flag (-O) to prsync
+	* Added patch from Chad Yoshikawa <chadyoshikawa@gmail.com>
+	  - Adds a print to stdout flag (-P) to pssh
 2004-08-21  Brent N. Chun <bnc at intel-research.net>
 	* All cmds now take -o, -e for stdout, stderr
 	* Checking return values for all cmds

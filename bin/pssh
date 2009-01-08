@@ -11,7 +11,7 @@
 #
 # Created: 16 August 2003
 #
-# $Id: pssh,v 1.8 2003/11/20 13:09:25 bnc Exp $
+# $Id: pssh,v 1.1.1.1 2004/08/21 20:27:46 bnc Exp $
 #
 import fcntl, os, popen2, select, signal, sys, threading, time
 sys.path.append("/usr/local/lib/python2.2")
@@ -31,6 +31,7 @@ def print_usage():
     print "  -t --timeout timeout in seconds to do ssh to a host (OPTIONAL)"
     print "  -v --verbose turn on warning and diagnostic messages (OPTIONAL)"
     print "  -O --options SSH options (OPTIONAL)"
+    print "  -P --print   print output as we go (OPTIONAL)"    
     print
     print "Example: pssh -h nodes.txt -l irb2 -o /tmp/foo uptime"
     print 
@@ -55,12 +56,12 @@ def read_envvars(flags):
 
 def parsecmdline(argv):
     import getopt
-    shortopts = "h:l:p:o:e:t:vO:"
+    shortopts = "h:l:p:o:e:t:vO:P"
     longopts = [ "hosts", "user", "par", "outdir", "errdir", "timeout",
-                 "verbose", "options" ]
+                 "verbose", "options", "print" ]
     flags = { "hosts" : None, "user" : None, "par" : _DEFAULT_PARALLELISM,
               "outdir" : None, "errdir" : None, "timeout" : _DEFAULT_TIMEOUT,
-              "verbose" : None, "options" : None }
+              "verbose" : None, "options" : None, "print" : None }
     read_envvars(flags)
     opts, args = getopt.getopt(argv[1:], shortopts, longopts)
     for o, v in opts:
@@ -80,6 +81,8 @@ def parsecmdline(argv):
             flags["verbose"] = 1
         elif o in ("-O", "--options"):
             flags["options"] = v
+        elif o in ("-P", "--print"):
+            flags["print"] = 1            
     # Required flags
     if not flags["hosts"]:
         print_usage()
