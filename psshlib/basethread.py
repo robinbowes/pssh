@@ -13,12 +13,12 @@ import traceback
 import Queue
 
 class BaseThread(threading.Thread):
-    def __init__(self, host, port, cmd, flags, sem, stdin=None):
+    def __init__(self, host, port, cmd, opts, sem, stdin=None):
         threading.Thread.__init__(self)
         self.host = host
         self.port = port
         self.cmd = cmd
-        self.flags = flags
+        self.opts = opts
         self.sem = sem
         self.stdin = stdin
         self.outputbuffer = ""
@@ -94,8 +94,8 @@ class BaseThread(threading.Thread):
             start = time.time()
             status = -1 # Set status to -1 for other errors (timeout, etc.)
             while 1:
-                if self.flags["timeout"] is not None:
-                    timeout = self.flags["timeout"] - (time.time() - start)
+                if self.opts.timeout is not None:
+                    timeout = self.opts.timeout - (time.time() - start)
                     if timeout <= 0:
                         raise Exception("Timeout")
                     r, w, e = self.select_wrap([ cstdout, cstderr ], 
@@ -109,11 +109,10 @@ class BaseThread(threading.Thread):
                         if len(chunk) == 0:
                             done = 1
                         iomap[f].write(chunk)                    
-                        if self.flags.has_key("print") and self.flags["print"]:
+                        if self.opts.print_out:
                             to_write = "%s: %s" % (self.host, chunk)
                             self.write_wrap(sys.stdout.fileno(), to_write)
-                        if self.flags.has_key("inline") and \
-                               self.flags["inline"] and len(chunk) > 0:
+                        if self.opts.inline and len(chunk) > 0:
                             self.outputbuffer += chunk # Small output only
                     if done:
                         break
@@ -126,7 +125,7 @@ class BaseThread(threading.Thread):
             log_completion(self.host, self.port, self.outputbuffer)
             self.write_output(stdout, stderr)
         except Exception, e:
-            if self.flags["verbose"]:
+            if self.opts.verbose:
                 print "Exception: %s, %s, %s" % \
                     (sys.exc_info()[0], sys.exc_info()[1], 
                      traceback.format_tb(sys.exc_info()[2]))
@@ -139,13 +138,13 @@ class BaseThread(threading.Thread):
         self.sem.release()
 
     def write_output(self, stdout, stderr):
-        if self.flags["outdir"]:
-            pathname = "%s/%s" % (self.flags["outdir"], self.host)
+        if self.opts.outdir:
+            pathname = "%s/%s" % (self.opts.outdir, self.host)
             f = open(pathname, "w")
             self.write_wrap(f.fileno(), stdout.getvalue())
             f.close()
-        if self.flags["errdir"]:
-            pathname = "%s/%s" % (self.flags["errdir"], self.host)
+        if self.opts.errdir:
+            pathname = "%s/%s" % (self.opts.errdir, self.host)
             f = open(pathname, "w")
             self.write_wrap(f.fileno(), stderr.getvalue())
             f.close()
