@@ -12,16 +12,48 @@ import time
 import traceback
 import Queue
 
-class BaseThread(threading.Thread):
-    def __init__(self, host, port, cmd, opts, sem, stdin=None):
+class ThreadPool():
+    def __init__(self, limit):
+        self.limit = limit
+        self.workers = []
+        self.tasks = Queue.Queue()
+        self.done = Queue.Queue()
+
+    def run(self):
+        while len(self.workers) < self.limit and not self.tasks.empty():
+            worker = Worker(self.tasks, self.done)
+            self.workers.append(worker)
+            worker.start()
+
+    def wait(self):
+        for worker in self.workers:
+            worker.join()
+
+class Worker(threading.Thread):
+    def __init__(self, tasks, done):
         threading.Thread.__init__(self)
+        self.tasks = tasks
+        self.done = done
+
+    def run(self):
+        while True:
+            try:
+                task = self.tasks.get(block=False)
+            except Queue.Empty:
+                break
+
+            task.run()
+            self.done.put(task)
+
+class Task():
+    def __init__(self, host, port, cmd, opts, stdin=None):
         self.host = host
         self.port = port
         self.cmd = cmd
         self.opts = opts
-        self.sem = sem
         self.stdin = stdin
         self.outputbuffer = ""
+        self.abort = False
 
     def select_wrap(self, rlist, wlist, elist, timeout):
         """
@@ -143,7 +175,6 @@ class BaseThread(threading.Thread):
             os.kill(-child.pid, signal.SIGKILL)
             child.poll()
         except: pass
-        self.sem.release()
 
     def write_output(self, stdout, stderr):
         if self.opts.outdir:
