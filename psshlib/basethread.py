@@ -81,6 +81,14 @@ class BaseThread(threading.Thread):
         child = Popen([self.cmd], stderr=PIPE, stdin=PIPE, stdout=PIPE,
                       close_fds=True, preexec_fn=os.setsid, shell=True)
         try:
+            print_out = bool(self.opts.print_out)
+        except AttributeError:
+            print_out = False
+        try:
+            inline = bool(self.opts.inline)
+        except AttributeError:
+            inline = False
+        try:
             cstdout = child.stdout
             cstderr = child.stderr
             cstdin = child.stdin
@@ -109,10 +117,10 @@ class BaseThread(threading.Thread):
                         if len(chunk) == 0:
                             done = 1
                         iomap[f].write(chunk)                    
-                        if self.opts.print_out:
+                        if print_out:
                             to_write = "%s: %s" % (self.host, chunk)
                             self.write_wrap(sys.stdout.fileno(), to_write)
-                        if self.opts.inline and len(chunk) > 0:
+                        if inline and len(chunk) > 0:
                             self.outputbuffer += chunk # Small output only
                     if done:
                         break

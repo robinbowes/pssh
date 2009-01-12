@@ -29,8 +29,8 @@ from psshlib.cli import common_parser, common_defaults
 
 def option_parser():
     parser = common_parser()
-    parser.usage = "%prog [OPTIONS] -h hosts.txt -o outdir remote local"
-    parser.epilog = "Example: pslurp -h hosts.txt -L /tmp/outdir -l irb2 " +
+    parser.usage = "%prog [OPTIONS] -h hosts.txt remote local"
+    parser.epilog = ("Example: pslurp -h hosts.txt -L /tmp/outdir -l irb2 " +
             "         /home/irb2/foo.txt foo.txt")
 
     parser.add_option('-r', '--recursive', dest='recursive',
@@ -62,10 +62,6 @@ def parse_args():
         parser.error('Hosts not specified.')
 
     return opts, args
-
-def print_usage():
-    print
-    print
 
 def do_pslurp(hosts, ports, users, remote, local, opts):
     if opts.localdir and not os.path.exists(opts.localdir):
