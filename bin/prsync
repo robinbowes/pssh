@@ -26,149 +26,72 @@ sys.path.append("%s" % basedir)
 
 from psshlib import psshutil
 from psshlib.basethread import BaseThread
+from psshlib.cli import common_parser, common_defaults
 
-_DEFAULT_PARALLELISM = 32
-_DEFAULT_TIMEOUT     = None # "infinity" by default
+def option_parser():
+    parser = common_parser()
+    parser.usage = "prsync [OPTIONS] -h hosts.txt local remote"
+    parser.epilog = ("Example: prsync -r -h hosts.txt -l irb2 foo " +
+          "/home/irb2/foo")
 
-def print_usage():
-    print "Usage: prsync [OPTIONS] -h hosts.txt local remote"
-    print
-    print "  -r --recursive recusively copy directories (OPTIONAL)"
-    print "  -a --archive   use rsync -a (archive mode) (OPTIONAL)"
-    print "  -z --compress  use rsync compression (OPTIONAL)"
-    print "  -h --hosts     hosts file (each line \"host[:port] [login]\")"
-    print "  -l --user      username (OPTIONAL)"
-    print "  -p --par       max number of parallel threads (OPTIONAL)"
-    print "  -o --outdir    output directory for stdout files (OPTIONAL)"
-    print "  -e --errdir    output directory for stderr files (OPTIONAL)"
-    print "  -t --timeout   timeout (secs) (-1 = no timeout) per host (OPTIONAL)"
-    print "  -v --verbose   turn on warning and diagnostic messages (OPTIONAL)"
-    print "  -O --options   SSH options (OPTIONAL)"
-    print
-    print "Example: prsync -r -h hosts.txt -l irb2 foo " + \
-          "/home/irb2/foo"
-    print
+    parser.add_option('-r', '--recursive', dest='recursive',
+            action='store_true', help='recusively copy directories (OPTIONAL)')
+    parser.add_option('-a', '--archive', dest='archive', action='store_true',
+            help='use rsync -a (archive mode) (OPTIONAL)')
+    parser.add_option('-z', '--compress', dest='compress', action='store_true',
+            help='use rsync compression (OPTIONAL)')
 
-def read_envvars(flags):
-    if os.getenv("PSSH_HOSTS"):
-        flags["hosts"] = os.getenv("PSSH_HOSTS")
-    if os.getenv("PSSH_USER"):
-        flags["user"] = os.getenv("PSSH_USER")
-    if os.getenv("PSSH_PAR"):
-        flags["par"] = int(os.getenv("PSSH_PAR"))
-    if os.getenv("PSSH_OUTDIR"):
-        flags["outdir"] = os.getenv("PSSH_OUTDIR")
-    if os.getenv("PSSH_ERRDIR"):
-        flags["errdir"] = os.getenv("PSSH_ERRDIR")
-    if os.getenv("PSSH_TIMEOUT"):
-        timeout = int(os.getenv("PSSH_TIMEOUT"))
-        if timeout != -1:
-            flags["timeout"] = timeout
-        else:
-            flags["timeout"] = None
-    if os.getenv("PSSH_OPTIONS"):
-        flags["options"] = os.getenv("PSSH_OPTIONS")
-    if os.getenv("PSSH_RECURSIVE"):
-       flags["recursive"] = int(os.getenv("PSSH_RECURSIVE"))
-    if os.getenv("PSSH_ARCHIVE"):
-       flags["archive"] = int(os.getenv("PSSH_ARCHIVE"))
-    if os.getenv("PSSH_COMPRESS"):
-       flags["compress"] = int(os.getenv("PSSH_COMPRESS"))
-    if os.getenv("PSSH_VERBOSE"): # "0" or "1"
-        flags["verbose"] = int(os.getenv("PSSH_VERBOSE"))
+    return parser
 
-def parsecmdline(argv):
-    shortopts = "h:l:p:o:e:t:O:razv"
-    longopts = [ "hosts=",
-                 "user=",
-                 "par=",
-                 "outdir=",
-                 "errdir=",
-                 "timeout=",
-                 "options=",
-                 "recursive",
-                 "archive",
-                 "compress",
-                 "verbose" ]
-    flags = { "hosts" : None,
-              "user" : None,
-              "par" : _DEFAULT_PARALLELISM,
-              "outdir" : None,
-              "errdir" : None,
-              "timeout" : _DEFAULT_TIMEOUT,
-              "options" : None,
-              "recursive" : None,
-              "archive" : None,
-              "compress" : None,
-              "verbose" : None }
-    read_envvars(flags)
-    if not flags["user"]:
-        flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
-    try:
-        opts, args = getopt.getopt(argv[1:], shortopts, longopts)
-    except getopt.GetoptError, e:
-        print "Error: %s\n" % str(e)
-        print_usage()
-        sys.exit(3)        
-    for o, v in opts:
-        if o in ("-h", "--hosts"):
-            flags["hosts"] = v
-        elif o in ("-l", "--user"):
-            flags["user"] = v
-        elif o in ("-p", "--par"):
-            flags["par"] = int(v)
-        elif o in ("-o", "--outdir"):
-            flags["outdir"] = v
-        elif o in ("-e", "--errdir"):
-            flags["errdir"] = v
-        elif o in ("-t", "--timeout"):
-            timeout =  int(v)
-            if timeout != -1:
-               flags["timeout"] = timeout
-            else:
-               flags["timeout"] = None
-        elif o in ("-O", "--options"):
-            flags["options"] = v
-        elif o in ("-r", "--recursive"):
-            flags["recursive"] = 1
-        elif o in ("-a", "--archive"):
-            flags["archive"] = 1
-        elif o in ("-z", "--compress"):
-            flags["compress"] = 1
-        elif o in ("-v", "--verbose"):
-            flags["verbose"] = 1
-    # Required flags
-    if not flags["hosts"]:
-        print_usage()
-        sys.exit(3)
-    return args, flags
+def parse_args():
+    parser = option_parser()
+    defaults = common_defaults()
+    parser.set_defaults(defaults)
+    opts, args = parser.parse_args()
+    #switch to this?: if opts.timeout <= 0:
+    if opts.timeout == -1:
+        opts.timeout = None
 
-def do_prsync(hosts, ports, users, local, remote, flags):
-    if flags["outdir"] and not os.path.exists(flags["outdir"]):
-        os.makedirs(flags["outdir"])
-    if flags["errdir"] and not os.path.exists(flags["errdir"]):
-        os.makedirs(flags["errdir"])
-    sem = threading.Semaphore(flags["par"])
+    if len(args) < 1:
+        parser.error('Paths not specified.')
+
+    if len(args) < 2:
+        parser.error('Remote path not specified.')
+
+    if len(args) > 2:
+        parser.error('Extra arguments given after the remote path.')
+
+    if not opts.hosts:
+        parser.error('Hosts not specified.')
+
+    return opts, args
+
+def do_prsync(hosts, ports, users, local, remote, opts):
+    if opts.outdir and not os.path.exists(opts.outdir):
+        os.makedirs(opts.outdir)
+    if opts.errdir and not os.path.exists(opts.errdir):
+        os.makedirs(opts.errdir)
+    sem = threading.Semaphore(opts.par)
     threads = []
     for i in range(len(hosts)):
         sem.acquire()
-        if flags["recursive"]:
+        if opts.recursive:
             recursiveswitch = "-r"
         else:
             recursiveswitch = ""
-        if flags["archive"]:
+        if opts.archive:
             archiveswitch = "-a"
         else:
             archiveswitch = ""
-        if flags["compress"]:
+        if opts.compress:
             compressswitch = "-z"
         else:
             compressswitch = ""
-        if flags["options"]:
-            cmd = "rsync --port %d %s %s %s -v -e \"ssh -o %s\" %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, flags["options"], local, users[i], hosts[i], remote)
+        if opts.options:
+            cmd = "rsync --port %d %s %s %s -v -e \"ssh -o %s\" %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, opts.options, local, users[i], hosts[i], remote)
         else:
             cmd = "rsync --port %d %s %s %s -v -e ssh %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, local, users[i], hosts[i], remote)
-        t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
+        t = BaseThread(hosts[i], ports[i], cmd, opts, sem)
         t.start()
         threads.append(t)
     for t in threads:
@@ -176,17 +99,14 @@ def do_prsync(hosts, ports, users, local, remote, flags):
 
 if __name__ == "__main__":
     subprocess._cleanup = lambda : None
-    args, flags = parsecmdline(sys.argv)
-    if len(args) != 2:
-        print_usage()
-        sys.exit(3)
+    opts, args = parse_args()
     local = args[0]
     remote = args[1]
     if not re.match("^/", remote):
         print "Remote path %s must be an absolute path" % remote
         sys.exit(3)
-    hosts, ports, users = psshutil.read_hosts(flags["hosts"])
-    psshutil.patch_users(hosts, ports, users, flags["user"])
+    hosts, ports, users = psshutil.read_hosts(opts.hosts)
+    psshutil.patch_users(hosts, ports, users, opts.user)
     signal.signal(signal.SIGCHLD, signal.SIG_DFL)
     os.setpgid(0, 0)
-    do_prsync(hosts, ports, users, local, remote, flags)
+    do_prsync(hosts, ports, users, local, remote, opts)

@@ -27,147 +27,85 @@ sys.path.append("%s" % basedir)
     
 from psshlib import psshutil
 from psshlib.basethread import BaseThread
-    
-_DEFAULT_PARALLELISM = 32
-_DEFAULT_TIMEOUT     = None # "infinity" by default
-    
-def print_usage():
-    print "Usage: pslurp [OPTIONS] -h hosts.txt -o outdir remote local"
-    print
-    print "  -r --recursive recusively copy directories (OPTIONAL)"
-    print "  -L --localdir  output directory for remote file copies"
-    print "  -h --hosts     hosts file (each line \"host[:port] [login]\")"
-    print "  -l --user      username (OPTIONAL)"
-    print "  -p --par       max number of parallel threads (OPTIONAL)"
-    print "  -o --outdir    output directory for stdout files (OPTIONAL)"
-    print "  -e --errdir    output directory for stderr files (OPTIONAL)"
-    print "  -t --timeout   timeout (secs) (-1 = no timeout) per host (OPTIONAL)"
-    print "  -v --verbose   turn on warning and diagnostic messages (OPTIONAL)"
-    print "  -O --options   SSH options (OPTIONAL)"
-    print
-    print "Example: pslurp -h hosts.txt -L /tmp/outdir -l irb2 \\"
-    print "         /home/irb2/foo.txt foo.txt"
-    print
-    
-def read_envvars(flags):
-    if os.getenv("PSSH_LOCALDIR"):
-        flags["localdir"] = os.getenv("PSSH_LOCALDIR")
-    if os.getenv("PSSH_HOSTS"):
-        flags["hosts"] = os.getenv("PSSH_HOSTS")
-    if os.getenv("PSSH_USER"):
-        flags["user"] = os.getenv("PSSH_USER")
-    if os.getenv("PSSH_PAR"):
-        flags["par"] = int(os.getenv("PSSH_PAR"))
-    if os.getenv("PSSH_OUTDIR"):
-        flags["outdir"] = os.getenv("PSSH_OUTDIR")
-    if os.getenv("PSSH_ERRDIR"):
-        flags["errdir"] = os.getenv("PSSH_ERRDIR")
-    if os.getenv("PSSH_TIMEOUT"):
-        timeout = int(os.getenv("PSSH_TIMEOUT"))
-        if timeout != -1:
-            flags["timeout"] = timeout
-        else:
-            flags["timeout"] = None
-    if os.getenv("PSSH_OPTIONS"):
-        flags["options"] = os.getenv("PSSH_OPTIONS")
-    if os.getenv("PSSH_RECURSIVE"):
-       flags["recursive"] = int(os.getenv("PSSH_RECURSIVE"))
-    if os.getenv("PSSH_VERBOSE"): # "0" or "1"
-        flags["verbose"] = int(os.getenv("PSSH_VERBOSE"))
-    
-def parsecmdline(argv):
-    shortopts = "L:h:l:p:o:e:t:O:rv"
-    longopts = [ "localdir=",
-                 "hosts=",
-                 "user=",
-                 "par=",
-                 "outdir=",
-                 "errdir=",
-                 "timeout=",
-                 "options=",
-                 "recursive",
-                 "verbose" ]
-    flags = { "localdir" : None,
-              "hosts" : None,
-              "user" : None,
-              "par" : _DEFAULT_PARALLELISM,
-              "outdir" : None,
-              "errdir" : None,
-              "timeout" : _DEFAULT_TIMEOUT,
-              "options" : None,
-              "recursive" : None,
-              "verbose" : None }
-    read_envvars(flags)
-    if not flags["user"]:
-        flags["user"] = pwd.getpwuid(os.getuid())[0] # Default to current user
-    try:
-        opts, args = getopt.getopt(argv[1:], shortopts, longopts)
-    except getopt.GetoptError, e:
-        print "Error: %s\n" % str(e)
-        print_usage()
-        sys.exit(3)        
-    for o, v in opts:
-        if o in ("-L", "--localdir"):
-            flags["localdir"] = v
-        elif o in ("-h", "--hosts"):
-            flags["hosts"] = v
-        elif o in ("-l", "--user"):
-            flags["user"] = v
-        elif o in ("-p", "--par"):
-            flags["par"] = int(v)
-        elif o in ("-o", "--outdir"):
-            flags["outdir"] = v
-        elif o in ("-e", "--errdir"):
-            flags["errdir"] = v
-        elif o in ("-t", "--timeout"):
-            timeout =  int(v)
-            if timeout != -1:
-               flags["timeout"] = timeout
-            else:
-               flags["timeout"] = None
-        elif o in ("-O", "--options"):
-            flags["options"] = v
-        elif o in ("-r", "--recursive"):
-            flags["recursive"] = 1
-        elif o in ("-v", "--verbose"):
-            flags["verbose"] = 1
-    # Required flags
-    if not flags["hosts"]:
-        print_usage()
-        sys.exit(3)
-    return args, flags
+from psshlib.cli import common_parser, common_defaults
 
-def do_pslurp(hosts, ports, users, remote, local, flags):
-    if flags["localdir"] and not os.path.exists(flags["localdir"]):
-        os.makedirs(flags["localdir"])
-    if flags["outdir"] and not os.path.exists(flags["outdir"]):
-        os.makedirs(flags["outdir"])
-    if flags["errdir"] and not os.path.exists(flags["errdir"]):
-        os.makedirs(flags["errdir"])
+def option_parser():
+    parser = common_parser()
+    parser.usage = "pslurp [OPTIONS] -h hosts.txt -o outdir remote local"
+    parser.epilog = "Example: pslurp -h hosts.txt -L /tmp/outdir -l irb2 " +
+            "         /home/irb2/foo.txt foo.txt")
+
+    parser.add_option('-r', '--recursive', dest='recursive',
+            action='store_true', help='recusively copy directories (OPTIONAL)')
+    parser.add_option('-L', '--localdir', dest='localdir',
+            help='output directory for remote file copies')
+
+    return parser
+
+def parse_args():
+    parser = option_parser()
+    defaults = common_defaults()
+    parser.set_defaults(defaults)
+    opts, args = parser.parse_args()
+    #switch to this?: if opts.timeout <= 0:
+    if opts.timeout == -1:
+        opts.timeout = None
+
+    if len(args) < 1:
+        parser.error('Paths not specified.')
+
+    if len(args) < 2:
+        parser.error('Local path not specified.')
+
+    if len(args) > 2:
+        parser.error('Extra arguments given after the local path.')
+
+    if not opts.hosts:
+        parser.error('Hosts not specified.')
+
+    return opts, args
+
+def print_usage():
+    print
+    print
+
+def do_pslurp(hosts, ports, users, remote, local, opts):
+    if opts.localdir and not os.path.exists(opts.localdir):
+        os.makedirs(opts.localdir)
+    if opts.outdir and not os.path.exists(opts.outdir):
+        os.makedirs(opts.outdir)
+    if opts.errdir and not os.path.exists(opts.errdir):
+        os.makedirs(opts.errdir)
     for host in hosts:
-        dirname = "%s/%s" % (flags["localdir"], host)
+        if opts.localdir:
+            dirname = "%s/%s" % (opts.localdir, host)
+        else:
+            dirname = host
         if not os.path.exists(dirname):
             os.mkdir(dirname)
-    sem = threading.Semaphore(flags["par"])
+    sem = threading.Semaphore(opts.par)
     threads = []
     for i in range(len(hosts)):
         sem.acquire()
-        localpath = "%s/%s/%s" % (flags["localdir"], hosts[i], local)
-        if flags["options"] and flags["recursive"]:
+        if opts.localdir:
+            localpath = "%s/%s/%s" % (opts.localdir, hosts[i], local)
+        else:
+            localpath = "%s/%s" % (hosts[i], local)
+        if opts.options and opts.recursive:
             cmd = "scp -o \"%s\" -qrC -P %d %s@%s:%s %s" % \
-                  (flags["options"], ports[i], users[i], hosts[i],
+                  (opts.options, ports[i], users[i], hosts[i],
                    remote, localpath)
-        elif flags["options"] and not flags["recursive"]:
+        elif opts.options and not opts.recursive:
             cmd = "scp -o \"%s\" -qC -P %d %s@%s:%s %s" % \
-                  (flags["options"], ports[i], users[i], hosts[i],
+                  (opts.options, ports[i], users[i], hosts[i],
                    remote, localpath)
-        elif not flags["options"] and flags["recursive"]:
+        elif not opts.options and opts.recursive:
             cmd = "scp -qrC -P %d %s@%s:%s %s" % \
                   (ports[i], users[i], hosts[i], remote, localpath)
         else:
             cmd = "scp -qC -P %d %s@%s:%s %s" % \
                   (ports[i], users[i], hosts[i], remote, localpath)
-        t = BaseThread(hosts[i], ports[i], cmd, flags, sem)
+        t = BaseThread(hosts[i], ports[i], cmd, opts, sem)
         t.start()
         threads.append(t)
     for t in threads:
@@ -175,17 +113,14 @@ def do_pslurp(hosts, ports, users, remote, local, flags):
 
 if __name__ == "__main__":
     subprocess._cleanup = lambda : None
-    args, flags = parsecmdline(sys.argv)
-    if len(args) != 2:
-        print_usage()
-        sys.exit(3)
+    opts, args = parse_args()
     remote = args[0]
     local = args[1]
     if not re.match("^/", remote):
         print "Remote path %s must be an absolute path" % remote
         sys.exit(3)
-    hosts, ports, users = psshutil.read_hosts(flags["hosts"])
-    psshutil.patch_users(hosts, ports, users, flags["user"])
+    hosts, ports, users = psshutil.read_hosts(opts.hosts)
+    psshutil.patch_users(hosts, ports, users, opts.user)
     signal.signal(signal.SIGCHLD, signal.SIG_DFL)
     os.setpgid(0, 0)
-    do_pslurp(hosts, ports, users, remote, local, flags)
+    do_pslurp(hosts, ports, users, remote, local, opts)
