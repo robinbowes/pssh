@@ -12,9 +12,7 @@
 # $Id: prsync 400 2008-10-12 11:48:28Z bnc $
 #
 import fcntl
-import getopt
 import os
-import pwd
 import re
 import signal
 import subprocess
@@ -30,7 +28,7 @@ from psshlib.cli import common_parser, common_defaults
 
 def option_parser():
     parser = common_parser()
-    parser.usage = "prsync [OPTIONS] -h hosts.txt local remote"
+    parser.usage = "%prog [OPTIONS] -h hosts.txt local remote"
     parser.epilog = ("Example: prsync -r -h hosts.txt -l irb2 foo " +
           "/home/irb2/foo")
 
@@ -46,7 +44,7 @@ def option_parser():
 def parse_args():
     parser = option_parser()
     defaults = common_defaults()
-    parser.set_defaults(defaults)
+    parser.set_defaults(**defaults)
     opts, args = parser.parse_args()
     #switch to this?: if opts.timeout <= 0:
     if opts.timeout == -1:

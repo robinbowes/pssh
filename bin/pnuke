@@ -11,9 +11,7 @@
 # $Id: pnuke 400 2008-10-12 11:48:28Z bnc $
 #
 import fcntl
-import getopt
 import os
-import pwd
 import signal
 import subprocess
 import sys
@@ -28,14 +26,14 @@ from psshlib.cli import common_parser, common_defaults
 
 def option_parser():
     parser = common_parser()
-    parser.usage = "pnuke [OPTIONS] -h hosts.txt pattern"
+    parser.usage = "%prog [OPTIONS] -h hosts.txt pattern"
     parser.epilog = "Example: pnuke -h hosts.txt -l irb2 java"
     return parser
 
 def parse_args():
     parser = option_parser()
     defaults = common_defaults()
-    parser.set_defaults(defaults)
+    parser.set_defaults(**defaults)
     opts, args = parser.parse_args()
     #switch to this?: if opts.timeout <= 0:
     if opts.timeout == -1:

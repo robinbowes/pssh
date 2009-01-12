@@ -1,4 +1,6 @@
 import optparse
+import os
+import pwd
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = -1 # "infinity" by default
@@ -12,7 +14,6 @@ def common_parser():
     parser = optparse.OptionParser(conflict_handler='resolve')
     # Ensure that options appearing after the command are sent to ssh.
     parser.disable_interspersed_args()
-    parser.usage = "pssh [OPTIONS] -h hosts.txt command [ARGS]"
     parser.epilog = "Example: pssh -h nodes.txt -l irb2 -o /tmp/foo uptime"
 
     parser.add_option('-h', '--hosts', dest='hosts',
