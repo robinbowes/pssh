@@ -24,7 +24,7 @@ basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
 sys.path.append("%s" % basedir)
 
 from psshlib import psshutil
-from psshlib.basethread import BaseThread
+from psshlib.basethread import ParallelPopen, Task
 from psshlib.cli import common_parser, common_defaults
 
 _DEFAULT_TIMEOUT = 60
@@ -58,16 +58,25 @@ def parse_args():
 
     return opts, args
 
+def buffer_input():
+    origfl = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
+    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl | os.O_NONBLOCK)
+    try:
+        stdin = sys.stdin.read()
+    except IOError: # Stdin contained no information
+        stdin = ""
+    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl)
+    return stdin
+
 def do_pssh(hosts, ports, users, cmdline, opts):
     if opts.outdir and not os.path.exists(opts.outdir):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
-    stdin = sys.stdin.read()
-    sem = threading.Semaphore(opts.par)
+    stdin = buffer_input()
     threads = []
+    p = ParallelPopen(opts.par)
     for i in range(len(hosts)):
-        sem.acquire()
         if opts.verbose:
             quietswitch = ""
         else:
@@ -79,18 +88,15 @@ def do_pssh(hosts, ports, users, cmdline, opts):
         else:
             cmd = "ssh %s -p %s -l %s %s \"%s\"" % \
                        (hosts[i], ports[i], users[i], quietswitch, cmdline)
-        t = BaseThread(hosts[i], ports[i], cmd, opts, sem, stdin)
-        t.start()
-        threads.append(t)
-    for t in threads:
-        t.join()
+        t = Task(hosts[i], ports[i], cmd, opts, stdin)
+        p.add_task(t)
+    p.run()
    
 if __name__ == "__main__":
-    subprocess._cleanup = lambda : None
     opts, args = parse_args()
     cmdline = " ".join(args)
     hosts, ports, users = psshutil.read_hosts(opts.hosts)
     psshutil.patch_users(hosts, ports, users, opts.user)
-    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+    #signal.signal(signal.SIGCHLD, signal.SIG_DFL)
     os.setpgid(0, 0)
     do_pssh(hosts, ports, users, cmdline, opts)
