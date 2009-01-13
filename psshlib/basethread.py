@@ -15,8 +15,9 @@ import Queue
 BUFFER_SIZE = 1 << 16
 
 class ParallelPopen(object):
-    def __init__(self, limit):
+    def __init__(self, limit, timeout):
         self.limit = limit
+        self.timeout = timeout
         self.iomap = IOMap()
 
         self.tasks = []
@@ -38,6 +39,7 @@ class ParallelPopen(object):
                 self.check_tasks()
                 timeout = self.check_timeout()
         except KeyboardInterrupt:
+            print 'got keyboard interrupt'
             self.stop_all()
 
         # TODO: finish task cleanup here
@@ -64,12 +66,15 @@ class ParallelPopen(object):
                 self.done.append(task)
                 n = len(self.done)
                 task.report(n)
+                print 'return code:', task.returncode
         self.running = still_running
 
     def check_timeout(self):
         """Kills timed-out processes and returns the lowest time left."""
         min_timeleft = None
         for task in self.running:
+            if self.timeout and self.timeout > 0:
+                return self.timeout - (time.time() - self.timestamp)
             timeleft = task.timeleft()
             if timeleft <= 0:
                 task.stop()
@@ -90,7 +95,6 @@ class Task(object):
         self.timestamp = None
 
         # Set options.
-        self.timeout = opts.timeout
         self.verbose = opts.verbose
         self.outdir = opts.outdir
         self.errdir = opts.errdir
@@ -148,9 +152,8 @@ class Task(object):
             os.kill(-self.proc.pid, signal.SIGKILL)
             # TODO: save a message that notes that this was interrupted!
 
-    def timeleft(self):
-        if self.timeout and self.timeout > 0:
-            return self.timeout - (time.time() - self.timestamp)
+    def elapsed(self):
+        return time.time() - self.timestamp
 
     def running(self):
         if self.stdin or self.stdout or self.stderr:

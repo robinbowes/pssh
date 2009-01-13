@@ -91,11 +91,10 @@ def do_pssh(hosts, ports, users, cmdline, opts):
     p.run()
    
 if __name__ == "__main__":
-    subprocess._cleanup = lambda : None
     opts, args = parse_args()
     cmdline = " ".join(args)
     hosts, ports, users = psshutil.read_hosts(opts.hosts)
     psshutil.patch_users(hosts, ports, users, opts.user)
-    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+    #signal.signal(signal.SIGCHLD, signal.SIG_DFL)
     os.setpgid(0, 0)
     do_pssh(hosts, ports, users, cmdline, opts)
