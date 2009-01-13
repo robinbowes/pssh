@@ -35,10 +35,11 @@ def common_parser():
 
     return parser
 
-def common_defaults():
+def common_defaults(**kwargs):
     current_user = pwd.getpwuid(os.getuid())[0]
     defaults = dict(par=_DEFAULT_PARALLELISM, timeout=_DEFAULT_TIMEOUT,
             user=current_user)
+    defaults.update(**kwargs)
     envvars = [('hosts', 'PSSH_HOSTS'),
             ('user', 'PSSH_USER'),
             ('par', 'PSSH_PAR'),

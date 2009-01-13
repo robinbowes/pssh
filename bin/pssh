@@ -27,6 +27,8 @@ from psshlib import psshutil
 from psshlib.basethread import BaseThread
 from psshlib.cli import common_parser, common_defaults
 
+_DEFAULT_TIMEOUT = 60
+
 def option_parser():
     parser = common_parser()
     parser.usage = "%prog [OPTIONS] -h hosts.txt command [...]"
@@ -41,7 +43,7 @@ def option_parser():
 
 def parse_args():
     parser = option_parser()
-    defaults = common_defaults()
+    defaults = common_defaults(timeout=_DEFAULT_TIMEOUT)
     parser.set_defaults(**defaults)
     opts, args = parser.parse_args()
     #switch to this?: if opts.timeout <= 0:
