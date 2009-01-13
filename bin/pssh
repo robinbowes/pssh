@@ -56,22 +56,12 @@ def parse_args():
 
     return opts, args
 
-def buffer_input():
-    origfl = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
-    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl | os.O_NONBLOCK)
-    try:
-        stdin = sys.stdin.read()
-    except IOError: # Stdin contained no information
-        stdin = ""
-    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl)
-    return stdin
-
 def do_pssh(hosts, ports, users, cmdline, opts):
     if opts.outdir and not os.path.exists(opts.outdir):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
-    stdin = buffer_input()
+    stdin = sys.stdin.read()
     sem = threading.Semaphore(opts.par)
     threads = []
     for i in range(len(hosts)):

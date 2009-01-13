@@ -12,211 +12,264 @@ import time
 import traceback
 import Queue
 
-class ThreadPool():
+BUFFER_SIZE = 1 << 16
+
+class ParallelPopen(object):
     def __init__(self, limit):
         self.limit = limit
-        self.workers = []
-        self.tasks = Queue.Queue()
-        self.done = Queue.Queue()
+        self.iomap = IOMap()
 
-    def run(self):
-        while len(self.workers) < self.limit and not self.tasks.empty():
-            worker = Worker(self.tasks, self.done)
-            self.workers.append(worker)
-            worker.start()
+        self.tasks = []
+        self.running = []
+        self.done = []
+
+    def add_task(self, task):
+        if len(self.running) < self.limit:
+            self.running.append(task)
+            task.start()
+        else:
+            self.tasks.append(task)
 
     def wait(self):
-        for worker in self.workers:
-            worker.join()
+        try:
+            start_tasks()
+            while True:
+                self.iomap.poll()
+                self.check_tasks()
+        except KeyboardInterrupt:
+            self.stop_all()
 
-class Worker(threading.Thread):
-    def __init__(self, tasks, done):
-        threading.Thread.__init__(self)
-        self.tasks = tasks
-        self.done = done
+    def stop_all(self):
+        for task in self.running:
+            task.stop()
 
-    def run(self):
-        while True:
-            try:
-                task = self.tasks.get(block=False)
-            except Queue.Empty:
-                break
+    def check_tasks(self):
+        for task in self.running:
+            pass
 
-            task.run()
-            self.done.put(task)
+        while 0 < len(self.tasks) and len(self.running) < self.limit:
+            task = self.tasks.pop(0)
+            self.running.append(task)
+            task.start()
 
-class Task():
+
+class Task(object):
     def __init__(self, host, port, cmd, opts, stdin=None):
         self.host = host
         self.port = port
         self.cmd = cmd
-        self.opts = opts
         self.stdin = stdin
         self.outputbuffer = ""
-        self.abort = False
+        self.errorbuffer = ""
+        self.exc_info = []
+        self.exc_str = []
 
-    def select_wrap(self, rlist, wlist, elist, timeout):
-        """
-        Perform a select on rlist, wlist, elist with the specified
-        timeout while retrying if the the select call is interrupted
-        because of a signal.  If timeout is None, this method never
-        times out.
-        """
-        t1 = time.time()
-        while True:
-            try:
-                t2 = time.time()
-                if timeout is not None:
-                    t = max(0, timeout - (t2 - t1))
-                    r, w, e = select.select(rlist, wlist, elist, t)
-                else: # No timeout
-                    r, w, e = select.select(rlist, wlist, elist)
-                return r, w, e
-            except select.error, e:
-                if e.args[0] == EINTR:
-                    continue
-                raise
+        self.proc = None
+        self.iomap = None
+        self.writer = None
+        self.timestamp = None
 
-    def async_read_wrap(self, fd, nbytes):
-       """Read up to nbytes from fd (or less if would block"""
-       buf = cStringIO.StringIO()
-       while len(buf.getvalue()) != nbytes:
-          try:
-              chunk = os.read(fd, nbytes - len(buf.getvalue()))
-              if len(chunk) == 0:
-                  return buf.getvalue() # EOF, so return
-              buf.write(chunk)
-          except OSError, e:
-              if e.errno == EINTR:
-                  continue
-              elif e.errno == EAGAIN:
-                  return buf.getvalue() 
-              raise
-       return buf.getvalue()
-
-    def write_wrap(self, fd, data):
-        """Write data to fd (assumes a blocking fd)"""
-        bytesWritten = 0
-        while bytesWritten != len(data):
-            try:
-                n = os.write(fd, data[bytesWritten:])
-                bytesWritten += n
-            except OSError, e:
-                if e.errno == EINTR:
-                    continue
-                raise
-
-    def run(self):
-        done = None
-        stdout = cStringIO.StringIO()
-        stderr = cStringIO.StringIO()
-        child = Popen([self.cmd], stderr=PIPE, stdin=PIPE, stdout=PIPE,
-                      close_fds=True, preexec_fn=os.setsid, shell=True)
+        # Set options.
+        self.outdir = opts.outdir
+        self.errdir = opts.errdir
         try:
-            print_out = bool(self.opts.print_out)
+            self.print_out = bool(opts.print_out)
         except AttributeError:
-            print_out = False
+            self.print_out = False
         try:
-            inline = bool(self.opts.inline)
+            self.inline = bool(opts.inline)
         except AttributeError:
-            inline = False
+            self.inline = False
+
+    def start(self, iomap, writer):
+        self.writer = writer
+
+        if self.stdin:
+            stdin = PIPE
+        else:
+            stdin = None
+
+        stdout = stderr = None
+        if self.outdir:
+            pathname = "%s/%s" % (self.outdir, self.host)
+            self.outfile = open(pathname, "w")
+            stdout = PIPE
+        if self.errdir:
+            pathname = "%s/%s" % (self.errdir, self.host)
+            self.errfile = open(pathname, "w")
+            stderr = PIPE
+        if self.inline or self.print_out:
+            stdout = stderr = PIPE
+
+        # Create the subprocess.
+        self.proc = Popen(self.cmd, stderr=stderr, stdin=stdin, stdout=stdout,
+                close_fds=True, preexec_fn=os.setsid)
+        self.timestamp = time.time()
+        if stdin:
+            self.fileno_stdin = self.proc.stdin.fileno()
+            iomap.register(self.fileno_stdin, self.handle_stdin, write=True)
+        if stdout:
+            self.fileno_stdout = self.proc.stdout.fileno()
+            iomap.register(self.fileno_stdout, self.handle_stdout, read=True)
+        if stderr:
+            self.fileno_stderr = self.proc.stderr.fileno()
+            iomap.register(self.fileno_stderr, self.handle_stderr, read=True)
+
+    def stop(self):
+        os.kill(-self.proc.pid, signal.SIGKILL)
+        # TODO: save a message that notes that this was interrupted!
+
+    def timeleft(self):
+        if self.timeout and self.timeout > 0:
+            return self.timeout - (time.time() - self.timestamp)
+
+    def handle_stdin(self, fd, event):
         try:
-            cstdout = child.stdout
-            cstderr = child.stderr
-            cstdin = child.stdin
-            if self.stdin:
-                self.write_wrap(cstdin.fileno(), self.stdin)
-                cstdin.close()
-                del self.stdin # Throw away stdin input, since we don't need it
-            iomap = { cstdout : stdout, cstderr : stderr }
-            fcntl.fcntl(cstdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
-            fcntl.fcntl(cstderr.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
-            start = time.time()
-            status = -1 # Set status to -1 for other errors (timeout, etc.)
-            while 1:
-                if self.opts.timeout is not None:
-                    timeout = self.opts.timeout - (time.time() - start)
-                    if timeout <= 0:
-                        raise Exception("Timeout")
-                    r, w, e = self.select_wrap([ cstdout, cstderr ], 
-                                               [], [], timeout)
-                else: # No timeout
-                    r, w, e = self.select_wrap([ cstdout, cstderr ], 
-                                               [], [], None)
-                try:
-                    for f in r:
-                        chunk = self.async_read_wrap(f.fileno(), 1 << 16)
-                        if len(chunk) == 0:
-                            done = 1
-                        iomap[f].write(chunk)                    
-                        if print_out:
-                            to_write = "%s: %s" % (self.host, chunk)
-                            self.write_wrap(sys.stdout.fileno(), to_write)
-                        if inline and len(chunk) > 0:
-                            self.outputbuffer += chunk # Small output only
-                    if done:
-                        break
-                except:
-                    os.kill(child.pid, signal.SIGKILL)
-                    raise
-            status = child.wait() # Shouldn't block (just to get status)
-            if status:
-                raise Exception("Received error code of %d" % status)
-            log_completion(self.host, self.port, self.outputbuffer)
-            self.write_output(stdout, stderr)
+            bytes_written = os.write(fd, self.stdin)
+        except:
+            self.close_stdin()
+            self.log_exception(e)
+        self.stdin = self.stdin[bytes_written:]
+
+    def close_stdin(self):
+        if self.fileno_stdin:
+            self.iomap.unregister(self.fileno_stdin)
+            os.close(self.fileno_stdin)
+            self.fileno_stdin = None
+
+    def handle_stdout(self, fd, event):
+        try:
+            buf = os.read(fd, BUFFER_SIZE)
+            if buf:
+                if self.inline:
+                    self.outputbuffer += buf
+                if self.outfile:
+                    self.writer.write(self.outfile, buf)
+                if self.print_out:
+                    print '%s: %s' % (self.host, buf),
+            else:
+                self.close_stdout()
+        except (OSError, IOError), e:
+            self.close_stdout()
+            self.log_exception(e)
+
+    def close_stdout(self):
+        if self.fileno_stdout:
+            self.iomap.unregister(self.fileno_stdout)
+            os.close(self.fileno_stdout)
+            self.fileno_stdout = None
+        if self.outfile:
+            self.writer.write(self.outfile, Writer.EOF)
+            self.outfile = None
+
+    def handle_stderr(self, fd, event):
+        try:
+            buf = os.read(fd, BUFFER_SIZE)
+            if buf:
+                if self.inline:
+                    self.errorbuffer += buf
+                if self.errfile:
+                    self.writer.write(self.errfile, buf)
+            else:
+                self.close_stderr()
         except Exception, e:
-            if self.opts.verbose:
-                print "Exception: %s, %s, %s" % \
-                    (sys.exc_info()[0], sys.exc_info()[1], 
-                     traceback.format_tb(sys.exc_info()[2]))
-            log_completion(self.host, self.port, self.outputbuffer, e)
-            self.write_output(stdout, stderr)
-        try:
-            os.kill(-child.pid, signal.SIGKILL)
-            child.poll()
-        except: pass
+            self.close_stderr()
+            self.log_exception(e)
 
-    def write_output(self, stdout, stderr):
-        if self.opts.outdir:
-            pathname = "%s/%s" % (self.opts.outdir, self.host)
-            f = open(pathname, "w")
-            self.write_wrap(f.fileno(), stdout.getvalue())
-            f.close()
-        if self.opts.errdir:
-            pathname = "%s/%s" % (self.opts.errdir, self.host)
-            f = open(pathname, "w")
-            self.write_wrap(f.fileno(), stderr.getvalue())
-            f.close()
+    def close_stderr(self):
+        if self.fileno_stderr:
+            self.iomap.unregister(self.fileno_stderr)
+            os.close(self.fileno_stderr)
+            self.fileno_stderr = None
+        if self.errfile:
+            self.writer.write(self.errfile, Writer.EOF)
+            self.errfile = None
 
-# Thread-safe queue with a single item: num completed threads
-completed = Queue.Queue()
-completed.put(0)
-def log_completion(host, port, output, exception=None):
-    # Increment the count of complete ops. This will
-    # drain the queue, causing subsequent calls of this
-    # method to block.
-    n = completed.get() + 1
-    try:
+    def log_exception(self, e):
+        self.exc_info.append(sys.exc_info())
+        self.exc_str.append(str(e))
+
+    def log_completion(self, n):
         tstamp = time.asctime().split()[3] # Current time
+        if self.verbose:
+            exceptions = []
+            for exc_type, exc_value, exc_traceback in self.exc_info:
+                exceptions.append("Exception: %s, %s, %s" % 
+                    (exc_type, exc_value, traceback.format_tb(exc_traceback)))
+            exc = '\n'.join(exceptions)
+        else:
+            exc = ', '.join(self.exc_str)
         if color.has_colors(sys.stdout):
             progress = color.c("[%s]" % color.B(n))
             success = color.g("[%s]" % color.B("SUCCESS"))
             failure = color.r("[%s]" % color.B("FAILURE"))
-            exc = color.r(color.B(str(exception)))
+            stderr = color.r("Standard error:"))
+            exc = color.r(color.B(exc))
         else:
             progress = "[%s]" % n
             success = "[SUCCESS]"
             failure = "[FAILURE]"
-            exc = str(exception)
-        if exception is not None:
-            print progress, tstamp, failure, host, port, exc
+            stderr = "Standard error:"
+        if exceptions
+            print progress, tstamp, failure, self.host, self.port, exc
         else:
-            print progress, tstamp, success, host, port
-        if output:
-            print output,
+            print progress, tstamp, success, self.host, self.port
+        if self.outputbuffer:
+            print self.outputbuffer,
+        if self.errorbuffer:
+            print stderr, self.errorbuffer,
         sys.stdout.flush()
-    finally:
-        # Update the count of complete ops. This will re-fill
-        # the queue, allowing other threads to continue with
-        # output.
-        completed.put(n)
+
+
+class Writer(threading.Thread):
+    EOF = object()
+
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.queue = Queue.Queue()
+
+    def write(self, fd, data):
+        """Called from another thread to enqueue a write."""
+        self.queue.put((fd, data))
+
+    def run(self):
+        while True:
+            file, data = self.queue.get()
+            if file == self.EOF:
+                file.close()
+            else:
+                print >>file, data,
+
+
+class IOMap(object):
+    def __init__(self):
+        self.map = {}
+        self.poller = select.poll()
+
+    def register(self, fd, handler, read=False, write=False):
+        """Registers an IO handler for a file descriptor.
+        
+        Either read or write (or both) must be specified.
+        """
+        self.map[fd] = handler
+
+        eventmask = 0
+        if read:
+            eventmask |= select.POLLIN
+        if write:
+            eventmask |= select.POLLOUT
+        if not eventmask:
+            raise ValueError("Register must be called with read or write.")
+        self.poller.register(fd, eventmask)
+
+    def unregister(self, fd):
+        """Unregisters the given file descriptor."""
+        self.poller.unregister(fd)
+        del self.map[fd]
+
+    def poll(self, timeout=None):
+        """Performs a poll and dispatches the resulting events."""
+        for fd, event in self.poller.poll(timeout):
+            handler = self.map[fd]
+            handler(fd, event)
+
