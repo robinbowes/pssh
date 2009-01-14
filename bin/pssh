@@ -46,9 +46,6 @@ def parse_args():
     defaults = common_defaults(timeout=_DEFAULT_TIMEOUT)
     parser.set_defaults(**defaults)
     opts, args = parser.parse_args()
-    #switch to this?: if opts.timeout <= 0:
-    if opts.timeout == -1:
-        opts.timeout = None
 
     if len(args) == 0:
         parser.error('Command not specified.')
@@ -75,7 +72,7 @@ def do_pssh(hosts, ports, users, cmdline, opts):
         os.makedirs(opts.errdir)
     stdin = buffer_input()
     threads = []
-    p = ParallelPopen(opts.par)
+    p = ParallelPopen(opts.par, opts.timeout)
     for i in range(len(hosts)):
         if opts.verbose:
             quietswitch = ""

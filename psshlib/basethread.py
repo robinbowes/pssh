@@ -66,21 +66,23 @@ class ParallelPopen(object):
                 self.done.append(task)
                 n = len(self.done)
                 task.report(n)
-                print 'return code:', task.returncode
         self.running = still_running
 
     def check_timeout(self):
         """Kills timed-out processes and returns the lowest time left."""
+
+        if self.timeout <= 0:
+            return None
+
         min_timeleft = None
         for task in self.running:
-            if self.timeout and self.timeout > 0:
-                return self.timeout - (time.time() - self.timestamp)
-            timeleft = task.timeleft()
+            timeleft = self.timeout - task.elapsed()
             if timeleft <= 0:
                 task.stop()
                 continue
             if min_timeleft is None or timeleft < min_timeleft:
                 min_timeleft = timeleft
+
         return max(0, min_timeleft)
 
 
@@ -163,7 +165,6 @@ class Task(object):
             if self.returncode is None:
                 return True
             else:
-                print 'task done running'
                 self.proc = None
                 return False
 
@@ -184,7 +185,6 @@ class Task(object):
     def handle_stdout(self, fd, event, iomap):
         try:
             buf = os.read(fd, BUFFER_SIZE)
-            #print 'got from stdout:', buf
             if buf:
                 if self.inline:
                     self.outputbuffer += buf
@@ -193,14 +193,12 @@ class Task(object):
                 if self.print_out:
                     print '%s: %s' % (self.host, buf),
             else:
-                #print 'EOF, outputbuffer:', self.outputbuffer
                 self.close_stdout(iomap)
         except (OSError, IOError), e:
             self.close_stdout(iomap)
             self.log_exception(e)
 
     def close_stdout(self, iomap):
-        #print 'closing stdout'
         if self.stdout:
             iomap.unregister(self.stdout.fileno())
             self.stdout.close()
@@ -233,7 +231,6 @@ class Task(object):
             self.errfile = None
 
     def log_exception(self, e):
-        print 'got an exception'
         self.exc_info.append(sys.exc_info())
         self.exc_str.append(str(e))
 

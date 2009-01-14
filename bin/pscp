@@ -43,9 +43,6 @@ def parse_args():
     defaults = common_defaults()
     parser.set_defaults(**defaults)
     opts, args = parser.parse_args()
-    #switch to this?: if opts.timeout <= 0:
-    if opts.timeout == -1:
-        opts.timeout = None
 
     if len(args) < 1:
         parser.error('Paths not specified.')
