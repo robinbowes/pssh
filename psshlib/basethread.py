@@ -24,9 +24,6 @@ class ParallelPopen(object):
         self.running = []
         self.done = []
 
-    def add_task(self, task):
-        self.tasks.append(task)
-
     def run(self):
         writer = Writer()
         writer.start()
@@ -45,6 +42,9 @@ class ParallelPopen(object):
 
         writer.queue.put((Writer.ABORT, None))
         writer.join()
+
+    def add_task(self, task):
+        self.tasks.append(task)
 
     def start_tasks(self, writer):
         while 0 < len(self.tasks) and len(self.running) < self.limit:
@@ -156,15 +156,15 @@ class Task(object):
 
     def timedout(self):
         self._kill()
-        self.failures.append('Timed out.')
+        self.failures.append('Timed out')
 
     def interrupted(self):
         self._kill()
-        self.failures.append('Interrupted.')
+        self.failures.append('Interrupted')
 
     def cancel(self):
         """Stop a task that has not started."""
-        self.failures.append('Cancelled.')
+        self.failures.append('Cancelled')
 
     def elapsed(self):
         return time.time() - self.timestamp
@@ -177,6 +177,12 @@ class Task(object):
             if self.returncode is None:
                 return True
             else:
+                if self.returncode < 0:
+                    message = 'Killed by signal %s' % (-self.returncode)
+                    self.failures.append(message)
+                elif self.returncode > 0:
+                    message = 'Exited with error code %s' % self.returncode
+                    self.failures.append(message)
                 self.proc = None
                 return False
 
@@ -268,7 +274,7 @@ class Task(object):
             success = "[SUCCESS]"
             failure = "[FAILURE]"
             stderr = "Standard error:"
-        if self.failures:
+        if error:
             print progress, tstamp, failure, self.host, self.port, error
         else:
             print progress, tstamp, success, self.host, self.port
