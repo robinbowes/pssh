@@ -1,8 +1,5 @@
-from errno import EAGAIN, EINTR
 from subprocess import Popen, PIPE
 import color
-import cStringIO
-import fcntl
 import os
 import select
 import signal
@@ -15,6 +12,14 @@ import Queue
 BUFFER_SIZE = 1 << 16
 
 class ParallelPopen(object):
+    """Executes commands in parallel.
+
+    Tasks are added with add_task() and executed in parallel with run().
+
+    Arguments:
+        limit: Maximum number of commands running at once.
+        timeout: Maximum allowed execution time in seconds.
+    """
     def __init__(self, limit, timeout):
         self.limit = limit
         self.timeout = timeout
@@ -25,8 +30,14 @@ class ParallelPopen(object):
         self.done = []
 
     def run(self):
-        writer = Writer()
-        writer.start()
+        """Processes tasks previously added with add_task."""
+        for task in self.tasks:
+            if task.outdir or task.errdir:
+                writer = Writer()
+                writer.start()
+                break
+        else:
+            writer = None
 
         try:
             self.start_tasks(writer)
@@ -38,35 +49,23 @@ class ParallelPopen(object):
         except KeyboardInterrupt:
             self.interrupted()
 
-        # TODO: finish task cleanup here
-
-        writer.queue.put((Writer.ABORT, None))
-        writer.join()
+        if writer:
+            writer.queue.put((Writer.ABORT, None))
+            writer.join()
 
     def add_task(self, task):
+        """Adds a Task to be processed with run()."""
         self.tasks.append(task)
 
     def start_tasks(self, writer):
+        """Starts as many tasks as allowed."""
         while 0 < len(self.tasks) and len(self.running) < self.limit:
             task = self.tasks.pop(0)
             self.running.append(task)
             task.start(self.iomap, writer)
 
-    def interrupted(self):
-        for task in self.running:
-            task.interrupted()
-            self.finished(task)
-
-        for task in self.tasks:
-            task.cancel()
-            self.finished(task)
-
-    def finished(self, task):
-        self.done.append(task)
-        n = len(self.done)
-        task.report(n)
-
     def check_tasks(self):
+        """Checks to see if any tasks have terminated."""
         still_running = []
         for task in self.running:
             if task.running():
@@ -77,7 +76,6 @@ class ParallelPopen(object):
 
     def check_timeout(self):
         """Kills timed-out processes and returns the lowest time left."""
-
         if self.timeout <= 0:
             return None
 
@@ -92,8 +90,25 @@ class ParallelPopen(object):
 
         return max(0, min_timeleft)
 
+    def interrupted(self):
+        """Cleans up after a keyboard interrupt."""
+        for task in self.running:
+            task.interrupted()
+            self.finished(task)
+
+        for task in self.tasks:
+            task.cancel()
+            self.finished(task)
+
+    def finished(self, task):
+        """Marks a task as complete and reports its status to stdout."""
+        self.done.append(task)
+        n = len(self.done)
+        task.report(n)
+
 
 class Task(object):
+    """Starts a process and manages its input and output."""
     def __init__(self, host, port, cmd, opts, stdin=None):
         self.host = host
         self.port = port
@@ -102,6 +117,16 @@ class Task(object):
         self.proc = None
         self.writer = None
         self.timestamp = None
+        self.failures = []
+        self.inputbuffer = stdin
+        self.outputbuffer = ''
+        self.errorbuffer = ''
+
+        self.stdin = None
+        self.stdout = None
+        self.stderr = None
+        self.outfile = None
+        self.errfile = None
 
         # Set options.
         self.verbose = opts.verbose
@@ -116,17 +141,8 @@ class Task(object):
         except AttributeError:
             self.inline = False
 
-        self.stdin = None
-        self.stdout = None
-        self.stderr = None
-        self.inputbuffer = stdin
-        self.outputbuffer = ''
-        self.outfile = None
-        self.errorbuffer = ''
-        self.errfile = None
-        self.failures = []
-
     def start(self, iomap, writer):
+        """Starts the process and registers files with the IOMap."""
         self.writer = writer
 
         if self.outdir:
@@ -151,25 +167,30 @@ class Task(object):
         iomap.register(self.stderr.fileno(), self.handle_stderr, read=True)
 
     def _kill(self):
+        """Signals the process to terminate."""
         if self.proc:
             os.kill(-self.proc.pid, signal.SIGKILL)
 
     def timedout(self):
+        """Kills the process and registers a timeout error."""
         self._kill()
         self.failures.append('Timed out')
 
     def interrupted(self):
+        """Kills the process and registers an keyboard interrupt error."""
         self._kill()
         self.failures.append('Interrupted')
 
     def cancel(self):
-        """Stop a task that has not started."""
+        """Stops a task that has not started."""
         self.failures.append('Cancelled')
 
     def elapsed(self):
+        """Finds the time in seconds since the process was started."""
         return time.time() - self.timestamp
 
     def running(self):
+        """Finds if the process has terminated and saves the return code."""
         if self.stdin or self.stdout or self.stderr:
             return True
         if self.proc:
@@ -252,6 +273,7 @@ class Task(object):
             self.errfile = None
 
     def log_exception(self, e):
+        """Saves a record of the most recent exception for error reporting."""
         if self.verbose:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             exc = ("Exception: %s, %s, %s" % 
@@ -261,6 +283,7 @@ class Task(object):
         self.failures.append(exc)
 
     def report(self, n):
+        """Pretty prints a status report after the Task completes."""
         error = ', '.join(self.failures)
         tstamp = time.asctime().split()[3] # Current time
         if color.has_colors(sys.stdout):
@@ -274,7 +297,7 @@ class Task(object):
             success = "[SUCCESS]"
             failure = "[FAILURE]"
             stderr = "Standard error:"
-        if error:
+        if self.failures:
             print progress, tstamp, failure, self.host, self.port, error
         else:
             print progress, tstamp, success, self.host, self.port
@@ -285,31 +308,11 @@ class Task(object):
         sys.stdout.flush()
 
 
-class Writer(threading.Thread):
-    EOF = object()
-    ABORT = object()
-
-    def __init__(self):
-        threading.Thread.__init__(self)
-        self.setDaemon(True)
-        self.queue = Queue.Queue()
-
-    def write(self, fd, data):
-        """Called from another thread to enqueue a write."""
-        self.queue.put((fd, data))
-
-    def run(self):
-        while True:
-            file, data = self.queue.get()
-            if file == self.ABORT:
-                return
-            if data == self.EOF:
-                file.close()
-            else:
-                print >>file, data,
-
-
 class IOMap(object):
+    """A manager for file descriptors and their associated handlers.
+
+    The poll method dispatches events to the appropriate handlers.
+    """
     def __init__(self):
         self.map = {}
         self.poller = select.poll()
@@ -341,3 +344,33 @@ class IOMap(object):
             handler = self.map[fd]
             handler(fd, event, self)
 
+
+class Writer(threading.Thread):
+    """Thread that writes to files by processing requests from a Queue.
+
+    Until AIO becomes widely available, it is impossible to make a nonblocking
+    write to an ordinary file.  The Writer thread processes all writing to
+    ordinary files so that the main thread can work without blocking.
+    """
+    EOF = object()
+    ABORT = object()
+
+    def __init__(self):
+        threading.Thread.__init__(self)
+        # A daemon thread automatically dies if the program is terminated.
+        self.setDaemon(True)
+        self.queue = Queue.Queue()
+
+    def run(self):
+        while True:
+            file, data = self.queue.get()
+            if file == self.ABORT:
+                return
+            if data == self.EOF:
+                file.close()
+            else:
+                print >>file, data,
+
+    def write(self, fd, data):
+        """Called from another thread to enqueue a write."""
+        self.queue.put((fd, data))
