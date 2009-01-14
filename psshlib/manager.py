@@ -164,13 +164,13 @@ class Writer(threading.Thread):
 
     def run(self):
         while True:
-            file, data = self.queue.get()
-            if file == self.ABORT:
+            dest, data = self.queue.get()
+            if dest == self.ABORT:
                 return
             if data == self.EOF:
-                file.close()
+                dest.close()
             else:
-                print >>file, data,
+                print >>dest, data,
 
     def write(self, fd, data):
         """Called from another thread to enqueue a write."""
