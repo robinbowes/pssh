@@ -15,16 +15,14 @@
 #
 import fcntl
 import os
-import signal
-import subprocess
 import sys
-import threading
 
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
 sys.path.append("%s" % basedir)
 
 from psshlib import psshutil
-from psshlib.basethread import ParallelPopen, Task
+from psshlib.manager import Manager
+from psshlib.task import Task
 from psshlib.cli import common_parser, common_defaults
 
 _DEFAULT_TIMEOUT = 60
@@ -71,8 +69,7 @@ def do_pssh(hosts, ports, users, cmdline, opts):
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
     stdin = buffer_input()
-    threads = []
-    p = ParallelPopen(opts.par, opts.timeout)
+    manager = Manager(opts.par, opts.timeout)
     for i in range(len(hosts)):
         if opts.verbose:
             quietswitch = ""
@@ -86,8 +83,8 @@ def do_pssh(hosts, ports, users, cmdline, opts):
             cmd = "ssh %s -p %s -l %s %s \"%s\"" % \
                        (hosts[i], ports[i], users[i], quietswitch, cmdline)
         t = Task(hosts[i], ports[i], cmd, opts, stdin)
-        p.add_task(t)
-    p.run()
+        manager.add_task(t)
+    manager.run()
    
 if __name__ == "__main__":
     opts, args = parse_args()
@@ -95,5 +92,5 @@ if __name__ == "__main__":
     hosts, ports, users = psshutil.read_hosts(opts.hosts)
     psshutil.patch_users(hosts, ports, users, opts.user)
     #signal.signal(signal.SIGCHLD, signal.SIG_DFL)
-    os.setpgid(0, 0)
+    #os.setpgid(0, 0)
     do_pssh(hosts, ports, users, cmdline, opts)

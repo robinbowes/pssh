@@ -12,19 +12,16 @@
 #
 # $Id: pscp 400 2008-10-12 11:48:28Z bnc $
 #
-import fcntl
 import os
 import re
-import signal
-import subprocess
 import sys
-import threading
 
 basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
 sys.path.append("%s" % basedir)
 
 from psshlib import psshutil
-from psshlib.basethread import BaseThread
+from psshlib.task import Task
+from psshlib.manager import Manager
 from psshlib.cli import common_parser, common_defaults
 
 def option_parser():
@@ -63,10 +60,8 @@ def do_pscp(hosts, ports, users, local, remote, opts):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
-    sem = threading.Semaphore(opts.par)
-    threads = []
+    manager = Manager(opts.par, opts.timeout)
     for i in range(len(hosts)):
-        sem.acquire()
         if opts.options and opts.recursive:
             cmd = "scp -o \"%s\" -qrC -P %d %s %s@%s:%s" % \
                   (opts.options, ports[i], local, users[i],
@@ -81,14 +76,11 @@ def do_pscp(hosts, ports, users, local, remote, opts):
         else:
             cmd = "scp -qC -P %d %s %s@%s:%s" % \
                   (ports[i], local, users[i], hosts[i], remote)
-        t = BaseThread(hosts[i], ports[i], cmd, opts, sem)
-        t.start()
-        threads.append(t)
-    for t in threads:
-        t.join()
+        t = BaseThread(hosts[i], ports[i], cmd, opts)
+        manager.add_task(t)
+    manager.run()
 
 if __name__ == "__main__":
-    subprocess._cleanup = lambda : None
     opts, args = parse_args()
     local = args[0]
     remote = args[1]
@@ -97,6 +89,6 @@ if __name__ == "__main__":
         sys.exit(3)
     hosts, ports, users = psshutil.read_hosts(opts.hosts)
     psshutil.patch_users(hosts, ports, users, opts.user)
-    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
-    os.setpgid(0, 0)
+    #signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+    #os.setpgid(0, 0)
     do_pscp(hosts, ports, users, local, remote, opts)
