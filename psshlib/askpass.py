@@ -7,6 +7,7 @@
 #
 # Created: 14 January 2009
 
+import errno
 import getpass
 import os
 import socket
@@ -19,6 +20,8 @@ class PasswordServer(object):
         self.sock = None
         self.tempdir = None
         self.address = None
+        self.socketmap = {}
+        self.buffermap = {}
 
     def ask(self):
         message = ('Warning: do not enter your password if anyone else has'
@@ -46,12 +49,40 @@ class PasswordServer(object):
         try:
             conn, address = self.sock.accept()
         except socket.error, e:
-            # FIXME
-            return
-        iomap.register(conn.fileno(), self.handle_write, write=True)
+            number, string = e.args
+            if number == errno.EINTR:
+                return
+            else:
+                # TODO: print an error message here?
+                self.sock.close()
+        fd = conn.fileno()
+        iomap.register(fd, self.handle_write, write=True)
+        self.socketmap[fd] = conn
+        self.buffermap[fd] = self.password
 
     def handle_write(self, fd, event, iomap):
-        pass
+        buffer = self.buffermap[fd]
+        conn = self.socketmap[fd]
+        try:
+            bytes_written = conn.send(buffer)
+        except socket.error, e:
+            number, string = e.args
+            if number == errno.EINTR:
+                return
+            else:
+                self.close_socket(fd, iomap)
+
+        buffer = buffer[bytes_written:]
+        if buffer:
+            self.buffermap[fd] = buffer
+        else:
+            self.close_socket(fd, iomap)
+
+    def close_socket(self, fd, iomap):
+        iomap.unregister(fd)
+        self.socketmap[fd].close()
+        del self.socketmap[fd]
+        del self.buffermap[fd]
 
     def __del__(self):
         if self.sock:
@@ -72,7 +103,12 @@ def password_client():
         print >>sys.stderr, "Couldn't bind to socket at %s." % address
         sys.exit(2)
 
-    password = sock.makefile().read()
+    try:
+        password = sock.makefile().read()
+    except socket.error, e:
+        print >>sys.stderr, "Socket error."
+        sys.exit(3)
+
     print password
 
 
