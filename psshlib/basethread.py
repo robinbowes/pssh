@@ -39,8 +39,7 @@ class ParallelPopen(object):
                 self.check_tasks()
                 timeout = self.check_timeout()
         except KeyboardInterrupt:
-            print 'got keyboard interrupt'
-            self.stop_all()
+            self.interrupted()
 
         # TODO: finish task cleanup here
 
@@ -53,9 +52,19 @@ class ParallelPopen(object):
             self.running.append(task)
             task.start(self.iomap, writer)
 
-    def stop_all(self):
+    def interrupted(self):
         for task in self.running:
-            task.stop()
+            task.interrupted()
+            self.finished(task)
+
+        for task in self.tasks:
+            task.cancel()
+            self.finished(task)
+
+    def finished(self, task):
+        self.done.append(task)
+        n = len(self.done)
+        task.report(n)
 
     def check_tasks(self):
         still_running = []
@@ -63,9 +72,7 @@ class ParallelPopen(object):
             if task.running():
                 still_running.append(task)
             else:
-                self.done.append(task)
-                n = len(self.done)
-                task.report(n)
+                self.finished(task)
         self.running = still_running
 
     def check_timeout(self):
@@ -78,7 +85,7 @@ class ParallelPopen(object):
         for task in self.running:
             timeleft = self.timeout - task.elapsed()
             if timeleft <= 0:
-                task.stop()
+                task.timedout()
                 continue
             if min_timeleft is None or timeleft < min_timeleft:
                 min_timeleft = timeleft
@@ -117,16 +124,10 @@ class Task(object):
         self.outfile = None
         self.errorbuffer = ''
         self.errfile = None
-        self.exc_info = []
-        self.exc_str = []
+        self.failures = []
 
     def start(self, iomap, writer):
         self.writer = writer
-
-        if self.stdin:
-            stdin = PIPE
-        else:
-            stdin = None
 
         if self.outdir:
             pathname = "%s/%s" % (self.outdir, self.host)
@@ -139,7 +140,7 @@ class Task(object):
         self.proc = Popen([self.cmd], stdin=PIPE, stdout=PIPE, stderr=PIPE,
                 close_fds=True, preexec_fn=os.setsid, shell=True)
         self.timestamp = time.time()
-        if stdin:
+        if self.inputbuffer:
             self.stdin = self.proc.stdin
             iomap.register(self.stdin.fileno(), self.handle_stdin, write=True)
         else:
@@ -149,10 +150,21 @@ class Task(object):
         self.stderr = self.proc.stderr
         iomap.register(self.stderr.fileno(), self.handle_stderr, read=True)
 
-    def stop(self):
+    def _kill(self):
         if self.proc:
             os.kill(-self.proc.pid, signal.SIGKILL)
-            # TODO: save a message that notes that this was interrupted!
+
+    def timedout(self):
+        self._kill()
+        self.failures.append('Timed out.')
+
+    def interrupted(self):
+        self._kill()
+        self.failures.append('Interrupted.')
+
+    def cancel(self):
+        """Stop a task that has not started."""
+        self.failures.append('Cancelled.')
 
     def elapsed(self):
         return time.time() - self.timestamp
@@ -170,11 +182,14 @@ class Task(object):
 
     def handle_stdin(self, fd, event, iomap):
         try:
-            bytes_written = os.write(fd, self.stdin)
+            if self.inputbuffer:
+                bytes_written = os.write(fd, self.inputbuffer)
+                self.inputbuffer = self.inputbuffer[bytes_written:]
+            else:
+                self.close_stdin(iomap)
         except (OSError, IOError), e:
             self.close_stdin(iomap)
             self.log_exception(e)
-        self.stdin = self.stdin[bytes_written:]
 
     def close_stdin(self, iomap):
         if self.stdin:
@@ -231,32 +246,30 @@ class Task(object):
             self.errfile = None
 
     def log_exception(self, e):
-        self.exc_info.append(sys.exc_info())
-        self.exc_str.append(str(e))
+        if self.verbose:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            exc = ("Exception: %s, %s, %s" % 
+                    (exc_type, exc_value, traceback.format_tb(exc_traceback)))
+        else:
+            exc = str(e)
+        self.failures.append(exc)
 
     def report(self, n):
+        error = ', '.join(self.failures)
         tstamp = time.asctime().split()[3] # Current time
-        if self.verbose:
-            exceptions = []
-            for exc_type, exc_value, exc_traceback in self.exc_info:
-                exceptions.append("Exception: %s, %s, %s" % 
-                    (exc_type, exc_value, traceback.format_tb(exc_traceback)))
-            exc = '\n'.join(exceptions)
-        else:
-            exc = ', '.join(self.exc_str)
         if color.has_colors(sys.stdout):
             progress = color.c("[%s]" % color.B(n))
             success = color.g("[%s]" % color.B("SUCCESS"))
             failure = color.r("[%s]" % color.B("FAILURE"))
             stderr = color.r("Standard error:")
-            exc = color.r(color.B(exc))
+            error = color.r(color.B(error))
         else:
             progress = "[%s]" % n
             success = "[SUCCESS]"
             failure = "[FAILURE]"
             stderr = "Standard error:"
-        if self.exc_info:
-            print progress, tstamp, failure, self.host, self.port, exc
+        if self.failures:
+            print progress, tstamp, failure, self.host, self.port, error
         else:
             print progress, tstamp, success, self.host, self.port
         if self.outputbuffer:
