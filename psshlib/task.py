@@ -1,3 +1,4 @@
+from errno import EINTR
 from subprocess import Popen, PIPE
 import color
 import os
@@ -123,8 +124,9 @@ class Task(object):
             else:
                 self.close_stdin(iomap)
         except (OSError, IOError), e:
-            self.close_stdin(iomap)
-            self.log_exception(e)
+            if e.errno != EINTR:
+                self.close_stdin(iomap)
+                self.log_exception(e)
 
     def close_stdin(self, iomap):
         if self.stdin:
@@ -145,8 +147,9 @@ class Task(object):
             else:
                 self.close_stdout(iomap)
         except (OSError, IOError), e:
-            self.close_stdout(iomap)
-            self.log_exception(e)
+            if e.errno != EINTR:
+                self.close_stdout(iomap)
+                self.log_exception(e)
 
     def close_stdout(self, iomap):
         if self.stdout:
@@ -168,8 +171,9 @@ class Task(object):
             else:
                 self.close_stderr(iomap)
         except (OSError, IOError), e:
-            self.close_stderr(iomap)
-            self.log_exception(e)
+            if e.errno != EINTR:
+                self.close_stderr(iomap)
+                self.log_exception(e)
 
     def close_stderr(self, iomap):
         if self.stderr:

@@ -1,3 +1,4 @@
+from errno import EINTR
 import select
 import threading
 import Queue
@@ -132,7 +133,15 @@ class IOMap(object):
 
     def poll(self, timeout=None):
         """Performs a poll and dispatches the resulting events."""
-        for fd, event in self.poller.poll(timeout):
+        try:
+            events = self.poller.poll(timeout)
+        except select.error, e:
+            errno, message = e.args
+            if errno == EINTR:
+                return
+            else:
+                raise
+        for fd, event in events:
             handler = self.map[fd]
             handler(fd, event, self)
 
@@ -166,3 +175,4 @@ class Writer(threading.Thread):
     def write(self, fd, data):
         """Called from another thread to enqueue a write."""
         self.queue.put((fd, data))
+
