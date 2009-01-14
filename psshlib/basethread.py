@@ -41,11 +41,13 @@ class ParallelPopen(object):
 
         try:
             self.start_tasks(writer)
-            timeout = None
+            wait = None
             while self.running or self.tasks:
-                self.iomap.poll(timeout)
+                if wait == None or wait < 1:
+                    wait = 1
+                self.iomap.poll(wait)
                 self.check_tasks()
-                timeout = self.check_timeout()
+                wait = self.check_timeout()
         except KeyboardInterrupt:
             self.interrupted()
 
@@ -118,6 +120,7 @@ class Task(object):
         self.writer = None
         self.timestamp = None
         self.failures = []
+        self.killed = False
         self.inputbuffer = stdin
         self.outputbuffer = ''
         self.errorbuffer = ''
@@ -170,16 +173,19 @@ class Task(object):
         """Signals the process to terminate."""
         if self.proc:
             os.kill(-self.proc.pid, signal.SIGKILL)
+            self.killed = True
 
     def timedout(self):
         """Kills the process and registers a timeout error."""
-        self._kill()
-        self.failures.append('Timed out')
+        if not self.killed:
+            self._kill()
+            self.failures.append('Timed out')
 
     def interrupted(self):
         """Kills the process and registers an keyboard interrupt error."""
-        self._kill()
-        self.failures.append('Interrupted')
+        if not self.killed:
+            self._kill()
+            self.failures.append('Interrupted')
 
     def cancel(self):
         """Stops a task that has not started."""
@@ -196,7 +202,10 @@ class Task(object):
         if self.proc:
             self.returncode = self.proc.poll()
             if self.returncode is None:
-                return True
+                if self.killed:
+                    return False
+                else:
+                    return True
             else:
                 if self.returncode < 0:
                     message = 'Killed by signal %s' % (-self.returncode)
