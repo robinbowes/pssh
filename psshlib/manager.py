@@ -27,34 +27,43 @@ class Manager(object):
 
     def run(self):
         """Processes tasks previously added with add_task."""
-        for task in self.tasks:
-            if task.outdir or task.errdir:
-                writer = Writer()
-                writer.start()
-                break
-        else:
-            writer = None
-
-        if self.askpass:
-            pass_server = PasswordServer()
-            pass_server.start(self.iomap, self.limit)
-            self.askpass_socket = pass_server.address
-
         try:
-            self.start_tasks(writer)
-            wait = None
-            while self.running or self.tasks:
-                if wait == None or wait < 1:
-                    wait = 1
-                self.iomap.poll(wait)
-                self.check_tasks()
-                wait = self.check_timeout()
+            for task in self.tasks:
+                if task.outdir or task.errdir:
+                    writer = Writer()
+                    writer.start()
+                    break
+            else:
+                writer = None
+
+            if self.askpass:
+                pass_server = PasswordServer()
+                pass_server.start(self.iomap, self.limit)
+                self.askpass_socket = pass_server.address
+
+            try:
+                self.start_tasks(writer)
+                wait = None
+                while self.running or self.tasks:
+                    if wait == None or wait < 1:
+                        wait = 1
+                    self.iomap.poll(wait)
+                    self.check_tasks()
+                    wait = self.check_timeout()
+            except KeyboardInterrupt:
+                # This exception handler tries to clean things up and prints
+                # out a nice status message for each interrupted host.
+                self.interrupted()
+
         except KeyboardInterrupt:
-            self.interrupted()
+            # This exception handler doesn't print out any fancy status
+            # information--it just stops.
+            pass
 
         if writer:
             writer.queue.put((Writer.ABORT, None))
             writer.join()
+
 
     def add_task(self, task):
         """Adds a Task to be processed with run()."""

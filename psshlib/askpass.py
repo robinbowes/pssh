@@ -24,19 +24,18 @@ class PasswordServer(object):
         self.socketmap = {}
         self.buffermap = {}
 
-    def ask(self):
-        message = ('Warning: do not enter your password if anyone else has'
-                'superuser privileges or access to your account.')
-        print textwrap.fill(message)
-            
-        self.password = getpass.getpass()
-
     def start(self, iomap, backlog):
-        """Creates a socket and starts listening.
+        """Prompts for the password, creates a socket, and starts listening.
 
         The specified backlog should be the max number of clients connecting
         at once.
         """
+        message = ('Warning: do not enter your password if anyone else has'
+                ' superuser privileges or access to your account.')
+        print textwrap.fill(message)
+            
+        self.password = getpass.getpass()
+
         # Note that according to the docs for mkdtemp, "The directory is
         # readable, writable, and searchable only by the creating user."
         self.tempdir = tempfile.mkdtemp(prefix='pssh.')
@@ -104,9 +103,10 @@ def password_client():
 
     sock = socket.socket(socket.AF_UNIX)
     try:
-        sock.bind(address)
+        sock.connect(address)
     except socket.error, e:
-        print >>sys.stderr, "Couldn't bind to socket at %s." % address
+        number, message = e.args
+        print >>sys.stderr, "Couldn't bind to %s: %s." % (address, message)
         sys.exit(2)
 
     try:
