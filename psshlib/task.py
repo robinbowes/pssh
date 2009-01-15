@@ -57,14 +57,15 @@ class Task(object):
             self.errfile = open(pathname, "w")
 
         # Create the subprocess.
+        environ = dict(os.environ)
         if askpass_socket:
-            environ = dict(os.environ)
             # If the module file is askpass.pyc, we replace the extension.
             root, ext = os.path.splitext(os.path.abspath(askpass.__file__))
             environ['SSH_ASKPASS'] = '%s.py' % root
             environ['PSSH_ASKPASS_SOCKET'] = askpass_socket
         else:
-            environ = None
+            # Disable the GNOME pop-up password dialog.
+            environ['SSH_ASKPASS'] = ''
         self.proc = Popen([self.cmd], stdin=PIPE, stdout=PIPE, stderr=PIPE,
                 close_fds=True, preexec_fn=os.setsid, env=environ, shell=True)
         self.timestamp = time.time()
