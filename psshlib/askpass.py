@@ -55,6 +55,7 @@ class PasswordServer(object):
             else:
                 # TODO: print an error message here?
                 self.sock.close()
+                self.sock = None
         fd = conn.fileno()
         iomap.register(fd, self.handle_write, write=True)
         self.socketmap[fd] = conn
@@ -86,8 +87,9 @@ class PasswordServer(object):
 
     def __del__(self):
         if self.sock:
-            # FIXME Delete it!
-            pass
+            self.sock.close()
+            self.sock = None
+        os.removedirs(self.tempdir)
 
 
 def password_client():

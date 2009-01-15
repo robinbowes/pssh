@@ -1,5 +1,6 @@
 from errno import EINTR
 from subprocess import Popen, PIPE
+import askpass
 import color
 import os
 import signal
@@ -44,7 +45,7 @@ class Task(object):
         except AttributeError:
             self.inline = False
 
-    def start(self, iomap, writer):
+    def start(self, iomap, writer, askpass_socket=None):
         """Starts the process and registers files with the IOMap."""
         self.writer = writer
 
@@ -56,8 +57,14 @@ class Task(object):
             self.errfile = open(pathname, "w")
 
         # Create the subprocess.
+        if askpass_socket:
+            environ = dict(os.environ)
+            environ['SSH_ASKPASS'] = os.path.abspath(askpass.__file__)
+            environ['PSSH_ASKPASS_SOCKET'] = askpass_socket
+        else:
+            environ = None
         self.proc = Popen([self.cmd], stdin=PIPE, stdout=PIPE, stderr=PIPE,
-                close_fds=True, preexec_fn=os.setsid, shell=True)
+                close_fds=True, preexec_fn=os.setsid, env=environ, shell=True)
         self.timestamp = time.time()
         if self.inputbuffer:
             self.stdin = self.proc.stdin

@@ -71,6 +71,7 @@ def do_pslurp(hosts, ports, users, remote, local, opts):
             dirname = host
         if not os.path.exists(dirname):
             os.mkdir(dirname)
+    manager = Manager(opts.par, opts.timeout, opts.askpass)
     for i in range(len(hosts)):
         if opts.localdir:
             localpath = "%s/%s/%s" % (opts.localdir, hosts[i], local)
@@ -90,7 +91,7 @@ def do_pslurp(hosts, ports, users, remote, local, opts):
         else:
             cmd = "scp -qC -P %d %s@%s:%s %s" % \
                   (ports[i], users[i], hosts[i], remote, localpath)
-        t = BaseThread(hosts[i], ports[i], cmd, opts)
+        t = Task(hosts[i], ports[i], cmd, opts)
         manager.add_task(t)
     manager.run()
 

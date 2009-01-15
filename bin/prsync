@@ -63,7 +63,7 @@ def do_prsync(hosts, ports, users, local, remote, opts):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
-    manager = Manager(opts.par, opts.timeout)
+    manager = Manager(opts.par, opts.timeout, opts.askpass)
     for i in range(len(hosts)):
         if opts.recursive:
             recursiveswitch = "-r"

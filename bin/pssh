@@ -69,7 +69,7 @@ def do_pssh(hosts, ports, users, cmdline, opts):
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
     stdin = buffer_input()
-    manager = Manager(opts.par, opts.timeout)
+    manager = Manager(opts.par, opts.timeout, opts.askpass)
     for i in range(len(hosts)):
         if opts.verbose:
             quietswitch = ""

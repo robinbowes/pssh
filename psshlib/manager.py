@@ -12,14 +12,17 @@ class Manager(object):
         limit: Maximum number of commands running at once.
         timeout: Maximum allowed execution time in seconds.
     """
-    def __init__(self, limit, timeout):
+    def __init__(self, limit, timeout, askpass=False):
         self.limit = limit
         self.timeout = timeout
+        self.askpass = askpass
         self.iomap = IOMap()
 
         self.tasks = []
         self.running = []
         self.done = []
+
+        askpass_socket = None
 
     def run(self):
         """Processes tasks previously added with add_task."""
@@ -30,6 +33,11 @@ class Manager(object):
                 break
         else:
             writer = None
+
+        if self.askpass:
+            pass_server = PasswordServer()
+            pass_server.start(self.iomap, self.limit)
+            self.askpass_socket = pass_server.address
 
         try:
             self.start_tasks(writer)
@@ -56,7 +64,7 @@ class Manager(object):
         while 0 < len(self.tasks) and len(self.running) < self.limit:
             task = self.tasks.pop(0)
             self.running.append(task)
-            task.start(self.iomap, writer)
+            task.start(self.iomap, writer, self.askpass_socket)
 
     def check_tasks(self):
         """Checks to see if any tasks have terminated."""
