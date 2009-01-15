@@ -59,7 +59,9 @@ class Task(object):
         # Create the subprocess.
         if askpass_socket:
             environ = dict(os.environ)
-            environ['SSH_ASKPASS'] = os.path.abspath(askpass.__file__)
+            # If the module file is askpass.pyc, we replace the extension.
+            root, ext = os.path.splitext(os.path.abspath(askpass.__file__))
+            environ['SSH_ASKPASS'] = '%s.py' % root
             environ['PSSH_ASKPASS_SOCKET'] = askpass_socket
         else:
             environ = None

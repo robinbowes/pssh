@@ -1,3 +1,4 @@
+from askpass import PasswordServer
 from errno import EINTR
 import select
 import threading
@@ -22,7 +23,7 @@ class Manager(object):
         self.running = []
         self.done = []
 
-        askpass_socket = None
+        self.askpass_socket = None
 
     def run(self):
         """Processes tasks previously added with add_task."""

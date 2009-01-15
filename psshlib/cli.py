@@ -32,7 +32,7 @@ def common_parser():
             help='SSH options (OPTIONAL)')
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
             help='turn on warning and diagnostic messages (OPTIONAL)')
-    parser.add_option('-A', '--askpass', dest='askpass',
+    parser.add_option('-A', '--askpass', dest='askpass', action='store_true',
             help='Ask for a password (OPTIONAL)')
 
     return parser

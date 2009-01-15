@@ -12,6 +12,7 @@ import getpass
 import os
 import socket
 import sys
+import tempfile
 import textwrap
 
 class PasswordServer(object):
@@ -38,7 +39,7 @@ class PasswordServer(object):
         """
         # Note that according to the docs for mkdtemp, "The directory is
         # readable, writable, and searchable only by the creating user."
-        self.tempdir = tempfile.mkdtemp(prefix='pssh')
+        self.tempdir = tempfile.mkdtemp(prefix='pssh.')
         self.address = os.path.join(self.tempdir, 'pssh_askpass_socket')
         self.sock = socket.socket(socket.AF_UNIX)
         self.sock.bind(self.address)
@@ -89,7 +90,10 @@ class PasswordServer(object):
         if self.sock:
             self.sock.close()
             self.sock = None
-        os.removedirs(self.tempdir)
+        if self.address:
+            os.remove(self.address)
+        if self.tempdir:
+            os.rmdir(self.tempdir)
 
 
 def password_client():
