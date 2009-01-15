@@ -76,12 +76,13 @@ def do_pssh(hosts, ports, users, cmdline, opts):
         else:
             quietswitch = "-q"
         if opts.options:
-            cmd = "ssh -o \"%s\" %s -p %s -l %s %s \"%s\"" % \
-                       (opts.options, hosts[i], ports[i], users[i],
-                        quietswitch, cmdline)
+            cmd = ('ssh -o NumberOfPasswordPrompts=1 -o "%s"'
+                    ' %s -p %s -l %s %s "%s"' %
+                    (opts.options, hosts[i], ports[i], users[i],
+                    quietswitch, cmdline))
         else:
-            cmd = "ssh %s -p %s -l %s %s \"%s\"" % \
-                       (hosts[i], ports[i], users[i], quietswitch, cmdline)
+            cmd = ('ssh -o NumberOfPasswordPrompts=1 %s -p %s -l %s %s "%s"' %
+                       (hosts[i], ports[i], users[i], quietswitch, cmdline))
         t = Task(hosts[i], ports[i], cmd, opts, stdin)
         manager.add_task(t)
     manager.run()

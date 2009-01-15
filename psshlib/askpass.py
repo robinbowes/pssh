@@ -98,7 +98,8 @@ class PasswordServer(object):
 def password_client():
     address = os.getenv('PSSH_ASKPASS_SOCKET')
     if not address:
-        print >>sys.stderr, "Environment variable PSSH_ASKPASS_SOCKET not set."
+        print >>sys.stderr, textwrap.fill("Permission denied.  Please create"
+                " SSH keys or use the -A option to provide a password.")
         sys.exit(1)
 
     sock = socket.socket(socket.AF_UNIX)

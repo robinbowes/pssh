@@ -56,16 +56,17 @@ class Task(object):
             pathname = "%s/%s" % (self.errdir, self.host)
             self.errfile = open(pathname, "w")
 
-        # Create the subprocess.
+        # Set up the environment.
         environ = dict(os.environ)
+        # Disable the GNOME pop-up password dialog and allow ssh to use
+        # askpass.py to get a provided password.  If the module file is
+        # askpass.pyc, we replace the extension.
+        root, ext = os.path.splitext(os.path.abspath(askpass.__file__))
+        environ['SSH_ASKPASS'] = '%s.py' % root
         if askpass_socket:
-            # If the module file is askpass.pyc, we replace the extension.
-            root, ext = os.path.splitext(os.path.abspath(askpass.__file__))
-            environ['SSH_ASKPASS'] = '%s.py' % root
             environ['PSSH_ASKPASS_SOCKET'] = askpass_socket
-        else:
-            # Disable the GNOME pop-up password dialog.
-            environ['SSH_ASKPASS'] = ''
+
+        # Create the subprocess.
         self.proc = Popen([self.cmd], stdin=PIPE, stdout=PIPE, stderr=PIPE,
                 close_fds=True, preexec_fn=os.setsid, env=environ, shell=True)
         self.timestamp = time.time()
@@ -212,13 +213,13 @@ class Task(object):
             progress = color.c("[%s]" % color.B(n))
             success = color.g("[%s]" % color.B("SUCCESS"))
             failure = color.r("[%s]" % color.B("FAILURE"))
-            stderr = color.r("Standard error:")
+            stderr = color.r("Stderr:")
             error = color.r(color.B(error))
         else:
             progress = "[%s]" % n
             success = "[SUCCESS]"
             failure = "[FAILURE]"
-            stderr = "Standard error:"
+            stderr = "Stderr:"
         if self.failures:
             print progress, tstamp, failure, self.host, self.port, error
         else:
