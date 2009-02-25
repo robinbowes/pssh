@@ -52,10 +52,10 @@ class Task(object):
 
         if self.outdir:
             pathname = "%s/%s" % (self.outdir, self.host)
-            self.outfile = open(pathname, "w")
+            self.outfile = open(pathname, "w", buffering=1)
         if self.errdir:
             pathname = "%s/%s" % (self.errdir, self.host)
-            self.errfile = open(pathname, "w")
+            self.errfile = open(pathname, "w", buffering=1)
 
         # Set up the environment.
         environ = dict(os.environ)
