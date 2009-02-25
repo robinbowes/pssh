@@ -52,12 +52,12 @@ def parse_args():
     if len(args) > 2:
         parser.error('Extra arguments given after the local path.')
 
-    if not opts.hosts:
+    if not opts.host_files:
         parser.error('Hosts not specified.')
 
     return opts, args
 
-def do_pslurp(hosts, ports, users, remote, local, opts):
+def do_pslurp(hosts, remote, local, opts):
     if opts.localdir and not os.path.exists(opts.localdir):
         os.makedirs(opts.localdir)
     if opts.outdir and not os.path.exists(opts.outdir):
@@ -72,26 +72,26 @@ def do_pslurp(hosts, ports, users, remote, local, opts):
         if not os.path.exists(dirname):
             os.mkdir(dirname)
     manager = Manager(opts.par, opts.timeout, opts.askpass)
-    for i in range(len(hosts)):
+    for host, port, user in hosts:
         if opts.localdir:
-            localpath = "%s/%s/%s" % (opts.localdir, hosts[i], local)
+            localpath = "%s/%s/%s" % (opts.localdir, host, local)
         else:
-            localpath = "%s/%s" % (hosts[i], local)
-        if opts.options and opts.recursive:
-            cmd = "scp -o \"%s\" -qrC -P %d %s@%s:%s %s" % \
-                  (opts.options, ports[i], users[i], hosts[i],
-                   remote, localpath)
-        elif opts.options and not opts.recursive:
-            cmd = "scp -o \"%s\" -qC -P %d %s@%s:%s %s" % \
-                  (opts.options, ports[i], users[i], hosts[i],
-                   remote, localpath)
-        elif not opts.options and opts.recursive:
-            cmd = "scp -qrC -P %d %s@%s:%s %s" % \
-                  (ports[i], users[i], hosts[i], remote, localpath)
+            localpath = "%s/%s" % (host, local)
+        cmd = ['scp', '-qC']
+        if opts.options:
+            cmd += ['-o', opts.options]
+        if user:
+            cmd += ['-l', user]
+        if port:
+            cmd += ['-p', port]
+        if opts.recursive:
+            cmd.append('-r')
+        if user:
+            cmd.append('%s@%s:%s' % (user, host, remote))
         else:
-            cmd = "scp -qC -P %d %s@%s:%s %s" % \
-                  (ports[i], users[i], hosts[i], remote, localpath)
-        t = Task(hosts[i], ports[i], cmd, opts)
+            cmd.append('%s:%s' % (host, remote))
+        cmd.append(localpath)
+        t = Task(host, port, cmd, opts)
         manager.add_task(t)
     manager.run()
 
@@ -102,8 +102,5 @@ if __name__ == "__main__":
     if not re.match("^/", remote):
         print "Remote path %s must be an absolute path" % remote
         sys.exit(3)
-    hosts, ports, users = psshutil.read_hosts(opts.hosts)
-    psshutil.patch_users(hosts, ports, users, opts.user)
-    #signal.signal(signal.SIGCHLD, signal.SIG_DFL)
-    #os.setpgid(0, 0)
-    do_pslurp(hosts, ports, users, remote, local, opts)
+    hosts = psshutil.read_hosts(opts.host_files, default_user=opts.user)
+    do_pslurp(hosts, users, remote, local, opts)

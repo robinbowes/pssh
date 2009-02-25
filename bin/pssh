@@ -30,7 +30,7 @@ _DEFAULT_TIMEOUT = 60
 def option_parser():
     parser = common_parser()
     parser.usage = "%prog [OPTIONS] -h hosts.txt command [...]"
-    parser.epilog = "Example: pssh -h nodes.txt -l irb2 -o /tmp/foo uptime"
+    parser.epilog = "Example: pssh -h hosts.txt -l irb2 -o /tmp/foo uptime"
 
     parser.add_option('-P', '--print', dest='print_out', action='store_true',
             help='print output as we get it (OPTIONAL)')
@@ -48,7 +48,7 @@ def parse_args():
     if len(args) == 0:
         parser.error('Command not specified.')
 
-    if not opts.hosts:
+    if not opts.host_files:
         parser.error('Hosts not specified.')
 
     return opts, args
@@ -63,35 +63,30 @@ def buffer_input():
     fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl)
     return stdin
 
-def do_pssh(hosts, ports, users, cmdline, opts):
+def do_pssh(hosts, cmdline, opts):
     if opts.outdir and not os.path.exists(opts.outdir):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
     stdin = buffer_input()
     manager = Manager(opts.par, opts.timeout, opts.askpass)
-    for i in range(len(hosts)):
-        if opts.verbose:
-            quietswitch = ""
-        else:
-            quietswitch = "-q"
+    for host, port, user in hosts:
+        cmd = ['ssh', host, '-o', 'NumberOfPasswordPrompts=1']
+        if not opts.verbose:
+            cmd.append('-q')
         if opts.options:
-            cmd = ('ssh -o NumberOfPasswordPrompts=1 -o "%s"'
-                    ' %s -p %s -l %s %s "%s"' %
-                    (opts.options, hosts[i], ports[i], users[i],
-                    quietswitch, cmdline))
-        else:
-            cmd = ('ssh -o NumberOfPasswordPrompts=1 %s -p %s -l %s %s "%s"' %
-                       (hosts[i], ports[i], users[i], quietswitch, cmdline))
-        t = Task(hosts[i], ports[i], cmd, opts, stdin)
+            cmd += ['-o', opts.options]
+        if user:
+            cmd += ['-l', user]
+        if port:
+            cmd += ['-p', port]
+        cmd.append(cmdline)
+        t = Task(host, port, cmd, opts, stdin)
         manager.add_task(t)
     manager.run()
    
 if __name__ == "__main__":
     opts, args = parse_args()
     cmdline = " ".join(args)
-    hosts, ports, users = psshutil.read_hosts(opts.hosts)
-    psshutil.patch_users(hosts, ports, users, opts.user)
-    #signal.signal(signal.SIGCHLD, signal.SIG_DFL)
-    #os.setpgid(0, 0)
-    do_pssh(hosts, ports, users, cmdline, opts)
+    hosts = psshutil.read_hosts(opts.host_files, default_user=opts.user)
+    do_pssh(hosts, cmdline, opts)

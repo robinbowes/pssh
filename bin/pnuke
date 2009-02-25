@@ -41,36 +41,34 @@ def parse_args():
     if len(args) > 1:
         parser.error('Extra arguments given after the pattern.')
 
-    if not opts.hosts:
+    if not opts.host_files:
         parser.error('Hosts not specified.')
 
     return opts, args
 
-def do_pnuke(hosts, ports, users, pattern, opts):
+def do_pnuke(hosts, pattern, opts):
     if opts.outdir and not os.path.exists(opts.outdir):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
     manager = Manager(opts.par, opts.timeout, opts.askpass)
-    for i in range(len(hosts)):
-        if opts.verbose:
-            quietswitch = ""
-        else:
-            quietswitch = "-q"
+    for host, port, user in hosts:
+        cmd = ['ssh', host, '-o', 'NumberOfPasswordPrompts=1']
+        if not opts.verbose:
+            cmd.append('-q')
         if opts.options:
-            cmd = 'ssh -o \"%s\" %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % (opts.options, hosts[i], ports[i], users[i], quietswitch, users[i], pattern)
-        else:
-            cmd = 'ssh %s -p %s -l %s %s \"kill -9 \`ps -ef | grep %s | grep %s | grep -v grep | awk \'{print \$2}\'\` >& /dev/null"' % \
-                   (hosts[i], ports[i], users[i], quietswitch, users[i], pattern)
-        t = BaseThread(hosts[i], ports[i], cmd, opts)
+            cmd += ['-o', opts.options]
+        if user:
+            cmd += ['-l', user]
+        if port:
+            cmd += ['-p', port]
+        cmd.append('pkill -9 %s' % pattern)
+        t = BaseThread(host, port, cmd, opts)
         manager.add_task(t)
     manager.run()
 
 if __name__ == "__main__":
     opts, args = parse_args()
     pattern = args[0]
-    hosts, ports, users = psshutil.read_hosts(opts.hosts)
-    psshutil.patch_users(hosts, ports, users, opts.user)
-    #signal.signal(signal.SIGCHLD, signal.SIG_DFL)
-    #os.setpgid(0, 0)
-    do_pnuke(hosts, ports, users, pattern, opts)
+    hosts = psshutil.read_hosts(opts.host_files, default_user=opts.user)
+    do_pnuke(hosts, pattern, opts)

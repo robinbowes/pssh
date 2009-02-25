@@ -68,8 +68,8 @@ class Task(object):
             environ['PSSH_ASKPASS_SOCKET'] = askpass_socket
 
         # Create the subprocess.
-        self.proc = Popen([self.cmd], stdin=PIPE, stdout=PIPE, stderr=PIPE,
-                close_fds=True, preexec_fn=os.setsid, env=environ, shell=True)
+        self.proc = Popen(self.cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE,
+                close_fds=True, preexec_fn=os.setsid, env=environ)
         self.timestamp = time.time()
         if self.inputbuffer:
             self.stdin = self.proc.stdin
@@ -221,10 +221,14 @@ class Task(object):
             success = "[SUCCESS]"
             failure = "[FAILURE]"
             stderr = "Stderr:"
-        if self.failures:
-            print progress, tstamp, failure, self.host, self.port, error
+        if self.port:
+            host = '%s:%s' % (self.host, self.port)
         else:
-            print progress, tstamp, success, self.host, self.port
+            host = self.host
+        if self.failures:
+            print progress, tstamp, failure, host, error
+        else:
+            print progress, tstamp, success, host
         if self.outputbuffer:
             print self.outputbuffer,
         if self.errorbuffer:

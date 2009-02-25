@@ -53,35 +53,39 @@ def parse_args():
     if len(args) > 2:
         parser.error('Extra arguments given after the remote path.')
 
-    if not opts.hosts:
+    if not opts.host_files:
         parser.error('Hosts not specified.')
 
     return opts, args
 
-def do_prsync(hosts, ports, users, local, remote, opts):
+def do_prsync(hosts, local, remote, opts):
     if opts.outdir and not os.path.exists(opts.outdir):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
     manager = Manager(opts.par, opts.timeout, opts.askpass)
-    for i in range(len(hosts)):
-        if opts.recursive:
-            recursiveswitch = "-r"
-        else:
-            recursiveswitch = ""
-        if opts.archive:
-            archiveswitch = "-a"
-        else:
-            archiveswitch = ""
-        if opts.compress:
-            compressswitch = "-z"
-        else:
-            compressswitch = ""
+    for host, port, user in hosts:
+        cmd = ['rsync']
+        if opts.verbose:
+            cmd.append('-v')
+        if port:
+            cmd += ['--port', port]
         if opts.options:
-            cmd = "rsync --port %d %s %s %s -v -e \"ssh -o %s\" %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, opts.options, local, users[i], hosts[i], remote)
+            cmd += ['-e', 'ssh -o %s' % opts.options]
         else:
-            cmd = "rsync --port %d %s %s %s -v -e ssh %s %s@%s:%s" % (ports[i], archiveswitch, compressswitch, recursiveswitch, local, users[i], hosts[i], remote)
-        t = BaseThread(hosts[i], ports[i], cmd, opts)
+            cmd += ['-e', 'ssh']
+        if opts.recursive:
+            cmd.append('-r')
+        if opts.archive:
+            opts.append('-a')
+        if opts.compress:
+            opts.append('-z')
+        cmd.append(local)
+        if user:
+            cmd.append('%s@%s:%s' % (user, host, remote))
+        else:
+            cmd.append('%s:%s' % (host, remote))
+        t = BaseThread(host, port, cmd, opts)
         manager.add_task(t)
     manager.run()
 
@@ -92,8 +96,5 @@ if __name__ == "__main__":
     if not re.match("^/", remote):
         print "Remote path %s must be an absolute path" % remote
         sys.exit(3)
-    hosts, ports, users = psshutil.read_hosts(opts.hosts)
-    psshutil.patch_users(hosts, ports, users, opts.user)
-    #signal.signal(signal.SIGCHLD, signal.SIG_DFL)
-    #os.setpgid(0, 0)
-    do_prsync(hosts, ports, users, local, remote, opts)
+    hosts = psshutil.read_hosts(opts.host_files, default_user=opts.user)
+    do_prsync(hosts, local, remote, opts)

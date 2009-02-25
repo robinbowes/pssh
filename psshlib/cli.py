@@ -16,7 +16,7 @@ def common_parser():
     parser.disable_interspersed_args()
     parser.epilog = "Example: pssh -h nodes.txt -l irb2 -o /tmp/foo uptime"
 
-    parser.add_option('-h', '--hosts', dest='hosts',
+    parser.add_option('-h', '--hosts', dest='host_files', action='append',
             help='hosts file (each line "host[:port] [user]")')
     parser.add_option('-l', '--user', dest='user',
             help='username (OPTIONAL)')
@@ -42,8 +42,7 @@ def common_defaults(**kwargs):
     defaults = dict(par=_DEFAULT_PARALLELISM, timeout=_DEFAULT_TIMEOUT,
             user=current_user)
     defaults.update(**kwargs)
-    envvars = [('hosts', 'PSSH_HOSTS'),
-            ('user', 'PSSH_USER'),
+    envvars = [('user', 'PSSH_USER'),
             ('par', 'PSSH_PAR'),
             ('outdir', 'PSSH_OUTDIR'),
             ('errdir', 'PSSH_ERRDIR'),
@@ -62,6 +61,10 @@ def common_defaults(**kwargs):
         value = os.getenv(var)
         if value:
             defaults[option] = value
+
+    value = os.getenv('PSSH_HOSTS')
+    if value:
+        defaults['host_files'] = [value]
 
     return defaults
 
