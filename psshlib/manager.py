@@ -64,7 +64,6 @@ class Manager(object):
             writer.queue.put((Writer.ABORT, None))
             writer.join()
 
-
     def add_task(self, task):
         """Adds a Task to be processed with run()."""
         self.tasks.append(task)

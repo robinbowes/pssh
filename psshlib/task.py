@@ -2,6 +2,7 @@ from errno import EINTR
 from subprocess import Popen, PIPE
 import askpass
 import color
+import manager
 import os
 import signal
 import sys
@@ -168,7 +169,7 @@ class Task(object):
             self.stdout.close()
             self.stdout = None
         if self.outfile:
-            self.writer.write(self.outfile, Writer.EOF)
+            self.writer.write(self.outfile, manager.Writer.EOF)
             self.outfile = None
 
     def handle_stderr(self, fd, event, iomap):
@@ -192,7 +193,7 @@ class Task(object):
             self.stderr.close()
             self.stderr = None
         if self.errfile:
-            self.writer.write(self.errfile, Writer.EOF)
+            self.writer.write(self.errfile, manager.Writer.EOF)
             self.errfile = None
 
     def log_exception(self, e):
