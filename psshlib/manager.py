@@ -49,6 +49,7 @@ class Manager(object):
                         wait = 1
                     self.iomap.poll(wait)
                     self.check_tasks()
+                    self.start_tasks(writer)
                     wait = self.check_timeout()
             except KeyboardInterrupt:
                 # This exception handler tries to clean things up and prints
