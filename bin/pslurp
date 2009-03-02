@@ -71,7 +71,7 @@ def do_pslurp(hosts, remote, local, opts):
             dirname = host
         if not os.path.exists(dirname):
             os.mkdir(dirname)
-    manager = Manager(opts.par, opts.timeout, opts.askpass)
+    manager = Manager(opts)
     for host, port, user in hosts:
         if opts.localdir:
             localpath = "%s/%s/%s" % (opts.localdir, host, local)

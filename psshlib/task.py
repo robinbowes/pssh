@@ -2,7 +2,6 @@ from errno import EINTR
 from subprocess import Popen, PIPE
 import askpass
 import color
-import manager
 import os
 import signal
 import sys
@@ -35,8 +34,6 @@ class Task(object):
 
         # Set options.
         self.verbose = opts.verbose
-        self.outdir = opts.outdir
-        self.errdir = opts.errdir
         try:
             self.print_out = bool(opts.print_out)
         except AttributeError:
@@ -50,12 +47,8 @@ class Task(object):
         """Starts the process and registers files with the IOMap."""
         self.writer = writer
 
-        if self.outdir:
-            pathname = "%s/%s" % (self.outdir, self.host)
-            self.outfile = open(pathname, "w", buffering=1)
-        if self.errdir:
-            pathname = "%s/%s" % (self.errdir, self.host)
-            self.errfile = open(pathname, "w", buffering=1)
+        if writer:
+            self.outfile, self.errfile = writer.open_files(self.host)
 
         # Set up the environment.
         environ = dict(os.environ)
@@ -169,7 +162,7 @@ class Task(object):
             self.stdout.close()
             self.stdout = None
         if self.outfile:
-            self.writer.write(self.outfile, manager.Writer.EOF)
+            self.writer.close(self.outfile)
             self.outfile = None
 
     def handle_stderr(self, fd, event, iomap):
@@ -193,7 +186,7 @@ class Task(object):
             self.stderr.close()
             self.stderr = None
         if self.errfile:
-            self.writer.write(self.errfile, manager.Writer.EOF)
+            self.writer.close(self.errfile)
             self.errfile = None
 
     def log_exception(self, e):

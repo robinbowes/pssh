@@ -69,7 +69,7 @@ def do_pssh(hosts, cmdline, opts):
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
     stdin = buffer_input()
-    manager = Manager(opts.par, opts.timeout, opts.askpass)
+    manager = Manager(opts)
     for host, port, user in hosts:
         cmd = ['ssh', host, '-o', 'NumberOfPasswordPrompts=1']
         if not opts.verbose:

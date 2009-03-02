@@ -60,7 +60,7 @@ def do_pscp(hosts, local, remote, opts):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
-    manager = Manager(opts.par, opts.timeout, opts.askpass)
+    manager = Manager(opts)
     for host, port, user in hosts:
         cmd = ['scp', '-qC']
         if opts.options:

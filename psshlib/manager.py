@@ -1,5 +1,6 @@
 from askpass import PasswordServer
 from errno import EINTR
+import os
 import select
 import threading
 import Queue
@@ -13,10 +14,12 @@ class Manager(object):
         limit: Maximum number of commands running at once.
         timeout: Maximum allowed execution time in seconds.
     """
-    def __init__(self, limit, timeout, askpass=False):
-        self.limit = limit
-        self.timeout = timeout
-        self.askpass = askpass
+    def __init__(self, opts):
+        self.limit = opts.par
+        self.timeout = opts.timeout
+        self.askpass = opts.askpass
+        self.outdir = opts.outdir
+        self.errdir = opts.errdir
         self.iomap = IOMap()
 
         self.tasks = []
@@ -28,11 +31,9 @@ class Manager(object):
     def run(self):
         """Processes tasks previously added with add_task."""
         try:
-            for task in self.tasks:
-                if task.outdir or task.errdir:
-                    writer = Writer()
-                    writer.start()
-                    break
+            if self.outdir or self.errdir:
+                writer = Writer(self.outdir, self.errdir)
+                writer.start()
             else:
                 writer = None
 
@@ -62,7 +63,7 @@ class Manager(object):
             pass
 
         if writer:
-            writer.queue.put((Writer.ABORT, None))
+            writer.signal_quit()
             writer.join()
 
     def add_task(self, task):
@@ -171,26 +172,68 @@ class Writer(threading.Thread):
     write to an ordinary file.  The Writer thread processes all writing to
     ordinary files so that the main thread can work without blocking.
     """
+    OPEN = object()
     EOF = object()
     ABORT = object()
 
-    def __init__(self):
+    def __init__(self, outdir, errdir):
         threading.Thread.__init__(self)
         # A daemon thread automatically dies if the program is terminated.
         self.setDaemon(True)
         self.queue = Queue.Queue()
+        self.outdir = outdir
+        self.errdir = errdir
+
+        self.host_counts = {}
+        self.files = {}
 
     def run(self):
         while True:
-            dest, data = self.queue.get()
-            if dest == self.ABORT:
+            filename, data = self.queue.get()
+            if filename == self.ABORT:
                 return
-            if data == self.EOF:
-                dest.close()
-            else:
-                print >>dest, data,
 
-    def write(self, fd, data):
+            if data == self.OPEN:
+                self.files[filename] = open(filename, 'w', buffering=1)
+            else:
+                dest = self.files[filename]
+                if data == self.EOF:
+                    dest.close()
+                else:
+                    print >>dest, data,
+
+    def open_files(self, host):
+        """Called from another thread to create files for stdout and stderr.
+        
+        Returns a pair of filenames (outfile, errfile).  These filenames are
+        used as handles for future operations.  Either or both may be None if
+        outdir or errdir or not set.
+        """
+        outfile = errfile = None
+        if self.outdir or self.errdir:
+            count = self.host_counts.get(host, 0)
+            self.host_counts[host] = count + 1
+            if count:
+                filename = "%s.%s" % (host, count)
+            else:
+                filename = host
+            if self.outdir:
+                outfile = os.path.join(self.outdir, filename)
+                self.queue.put((outfile, self.OPEN))
+            if self.errdir:
+                errfile = os.path.join(self.errdir, filename)
+                self.queue.put((errfile, self.OPEN))
+        return outfile, errfile
+
+    def write(self, filename, data):
         """Called from another thread to enqueue a write."""
-        self.queue.put((fd, data))
+        self.queue.put((filename, data))
+
+    def close(self, filename):
+        """Called from another thread to close the given file."""
+        self.queue.put((filename, self.EOF))
+
+    def signal_quit(self):
+        """Called from another thread to request the Writer to quit."""
+        self.queue.put((self.ABORT, None))
 
