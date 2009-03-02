@@ -193,7 +193,7 @@ class Task(object):
         """Saves a record of the most recent exception for error reporting."""
         if self.verbose:
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            exc = ("Exception: %s, %s, %s" % 
+            exc = ("Exception: %s, %s, %s" %
                     (exc_type, exc_value, traceback.format_tb(exc_traceback)))
         else:
             exc = str(e)

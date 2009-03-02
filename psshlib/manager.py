@@ -131,7 +131,7 @@ class IOMap(object):
 
     def register(self, fd, handler, read=False, write=False):
         """Registers an IO handler for a file descriptor.
-        
+
         Either read or write (or both) must be specified.
         """
         self.map[fd] = handler
@@ -204,7 +204,7 @@ class Writer(threading.Thread):
 
     def open_files(self, host):
         """Called from another thread to create files for stdout and stderr.
-        
+
         Returns a pair of filenames (outfile, errfile).  These filenames are
         used as handles for future operations.  Either or both may be None if
         outdir or errdir or not set.

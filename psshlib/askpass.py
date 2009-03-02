@@ -33,7 +33,7 @@ class PasswordServer(object):
         message = ('Warning: do not enter your password if anyone else has'
                 ' superuser privileges or access to your account.')
         print textwrap.fill(message)
-            
+
         self.password = getpass.getpass()
 
         # Note that according to the docs for mkdtemp, "The directory is
