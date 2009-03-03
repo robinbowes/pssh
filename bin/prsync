@@ -85,7 +85,7 @@ def do_prsync(hosts, local, remote, opts):
             cmd.append('%s@%s:%s' % (user, host, remote))
         else:
             cmd.append('%s:%s' % (host, remote))
-        t = BaseThread(host, port, cmd, opts)
+        t = Task(host, port, cmd, opts)
         manager.add_task(t)
     manager.run()
 
