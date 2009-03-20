@@ -22,6 +22,7 @@ class Manager(object):
         self.errdir = opts.errdir
         self.iomap = IOMap()
 
+        self.taskcount = 0
         self.tasks = []
         self.running = []
         self.done = []
@@ -75,7 +76,8 @@ class Manager(object):
         while 0 < len(self.tasks) and len(self.running) < self.limit:
             task = self.tasks.pop(0)
             self.running.append(task)
-            task.start(self.iomap, writer, self.askpass_socket)
+            task.start(self.taskcount, self.iomap, writer, self.askpass_socket)
+            self.taskcount += 1
 
     def check_tasks(self):
         """Checks to see if any tasks have terminated."""
