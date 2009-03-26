@@ -60,6 +60,10 @@ class Task(object):
         environ['SSH_ASKPASS'] = '%s.py' % root
         if askpass_socket:
             environ['PSSH_ASKPASS_SOCKET'] = askpass_socket
+        # Work around a mis-feature in ssh where it won't call SSH_ASKPASS
+        # if DISPLAY is unset.
+        if 'DISPLAY' not in environ:
+            environ['DISPLAY'] = 'pssh-gibberish'
 
         # Create the subprocess.
         self.proc = Popen(self.cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE,
