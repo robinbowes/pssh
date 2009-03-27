@@ -125,11 +125,23 @@ class Manager(object):
 class IOMap(object):
     """A manager for file descriptors and their associated handlers.
 
-    The poll method dispatches events to the appropriate handlers.
+    The poll method dispatches events to the appropriate handlers.  If the
+    system does not implement select.poll, the IOMap falls back on
+    select.select.
     """
     def __init__(self):
         self.map = {}
-        self.poller = select.poll()
+        # Check for the availability of poll (not on all OS's).
+        try:
+            poll = select.poll
+        except AttributeError:
+            poll = None
+
+        if poll:
+            self.poller = poll()
+        else:
+            self.rlist = []
+            self.wlist = []
 
     def register(self, fd, handler, read=False, write=False):
         """Registers an IO handler for a file descriptor.
@@ -138,24 +150,40 @@ class IOMap(object):
         """
         self.map[fd] = handler
 
-        eventmask = 0
-        if read:
-            eventmask |= select.POLLIN
-        if write:
-            eventmask |= select.POLLOUT
-        if not eventmask:
+        if not read and not write:
             raise ValueError("Register must be called with read or write.")
-        self.poller.register(fd, eventmask)
+
+        if self.poller:
+            eventmask = 0
+            if read:
+                eventmask |= select.POLLIN
+            if write:
+                eventmask |= select.POLLOUT
+            self.poller.register(fd, eventmask)
+        else:
+            if read:
+                self.rlist.append(fd)
+            if write:
+                self.wlist.append(fd)
 
     def unregister(self, fd):
         """Unregisters the given file descriptor."""
-        self.poller.unregister(fd)
+        if self.poller:
+            self.poller.unregister(fd)
+        else:
+            if fd in self.rlist:
+                self.rlist.remove(fd)
+            if fd in self.wlist:
+                self.wlist.remove(fd)
         del self.map[fd]
 
     def poll(self, timeout=None):
         """Performs a poll and dispatches the resulting events."""
         try:
-            events = self.poller.poll(timeout)
+            if self.poller:
+                events = self.poller.poll(timeout)
+            else:
+                events = self._select(timeout)
         except select.error, e:
             errno, message = e.args
             if errno == EINTR:
@@ -163,8 +191,16 @@ class IOMap(object):
             else:
                 raise
         for fd, event in events:
-            handler = self.map[fd]
-            handler(fd, event, self)
+            if fd in self.map:
+                handler = self.map[fd]
+                handler(fd, event, self)
+
+    def _select(self, timeout):
+        """Simple emulation of poll using select."""
+        rlist, wlist, _ = select.select(self.rlist, self.wlist, [], timeout)
+        events = [(fd, select.POLLIN) for fd in rlist]
+        events += [(fd, select.POLLOUT) for fd in wlist]
+        return events
 
 
 class Writer(threading.Thread):
