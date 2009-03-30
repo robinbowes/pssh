@@ -71,13 +71,13 @@ class Task(object):
         self.timestamp = time.time()
         if self.inputbuffer:
             self.stdin = self.proc.stdin
-            iomap.register(self.stdin.fileno(), self.handle_stdin, write=True)
+            iomap.register_write(self.stdin.fileno(), self.handle_stdin)
         else:
             self.proc.stdin.close()
         self.stdout = self.proc.stdout
-        iomap.register(self.stdout.fileno(), self.handle_stdout, read=True)
+        iomap.register_read(self.stdout.fileno(), self.handle_stdout)
         self.stderr = self.proc.stderr
-        iomap.register(self.stderr.fileno(), self.handle_stderr, read=True)
+        iomap.register_read(self.stderr.fileno(), self.handle_stderr)
 
     def _kill(self):
         """Signals the process to terminate."""
@@ -126,7 +126,8 @@ class Task(object):
                 self.proc = None
                 return False
 
-    def handle_stdin(self, fd, event, iomap):
+    def handle_stdin(self, fd, iomap):
+        """Called when the process's standard input is ready for writing."""
         try:
             if self.inputbuffer:
                 bytes_written = os.write(fd, self.inputbuffer)
@@ -144,7 +145,8 @@ class Task(object):
             self.stdin.close()
             self.stdin = None
 
-    def handle_stdout(self, fd, event, iomap):
+    def handle_stdout(self, fd, iomap):
+        """Called when the process's standard output is ready for reading."""
         try:
             buf = os.read(fd, BUFFER_SIZE)
             if buf:
@@ -170,7 +172,8 @@ class Task(object):
             self.writer.close(self.outfile)
             self.outfile = None
 
-    def handle_stderr(self, fd, event, iomap):
+    def handle_stderr(self, fd, iomap):
+        """Called when the process's standard error is ready for reading."""
         try:
             buf = os.read(fd, BUFFER_SIZE)
             if buf:

@@ -43,7 +43,7 @@ class PasswordServer(object):
         self.sock = socket.socket(socket.AF_UNIX)
         self.sock.bind(self.address)
         self.sock.listen(backlog)
-        iomap.register(self.sock.fileno(), self.handle_listen, read=True)
+        iomap.register_read(self.sock.fileno(), self.handle_listen)
 
     def handle_listen(self, fd, event, iomap):
         try:
@@ -57,7 +57,7 @@ class PasswordServer(object):
                 self.sock.close()
                 self.sock = None
         fd = conn.fileno()
-        iomap.register(fd, self.handle_write, write=True)
+        iomap.register_write(fd, self.handle_write)
         self.socketmap[fd] = conn
         self.buffermap[fd] = self.password
 

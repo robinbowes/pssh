@@ -1,9 +1,9 @@
 from askpass import PasswordServer
 from errno import EINTR
-import os
 import select
-import threading
+import os
 import Queue
+import threading
 
 class Manager(object):
     """Executes tasks concurrently.
@@ -125,82 +125,47 @@ class Manager(object):
 class IOMap(object):
     """A manager for file descriptors and their associated handlers.
 
-    The poll method dispatches events to the appropriate handlers.  If the
-    system does not implement select.poll, the IOMap falls back on
-    select.select.
+    The poll method dispatches events to the appropriate handlers.
     """
     def __init__(self):
-        self.map = {}
-        # Check for the availability of poll (not on all OS's).
-        try:
-            poll = select.poll
-        except AttributeError:
-            poll = None
+        self.readmap = {}
+        self.writemap = {}
 
-        if poll:
-            self.poller = poll()
-        else:
-            self.rlist = []
-            self.wlist = []
+    def register_read(self, fd, handler):
+        """Registers an IO handler for a file descriptor for reading."""
+        self.readmap[fd] = handler
 
-    def register(self, fd, handler, read=False, write=False):
-        """Registers an IO handler for a file descriptor.
-
-        Either read or write (or both) must be specified.
-        """
-        self.map[fd] = handler
-
-        if not read and not write:
-            raise ValueError("Register must be called with read or write.")
-
-        if self.poller:
-            eventmask = 0
-            if read:
-                eventmask |= select.POLLIN
-            if write:
-                eventmask |= select.POLLOUT
-            self.poller.register(fd, eventmask)
-        else:
-            if read:
-                self.rlist.append(fd)
-            if write:
-                self.wlist.append(fd)
+    def register_write(self, fd, handler):
+        """Registers an IO handler for a file descriptor for writing."""
+        self.writemap[fd] = handler
 
     def unregister(self, fd):
         """Unregisters the given file descriptor."""
-        if self.poller:
-            self.poller.unregister(fd)
-        else:
-            if fd in self.rlist:
-                self.rlist.remove(fd)
-            if fd in self.wlist:
-                self.wlist.remove(fd)
-        del self.map[fd]
+        if fd in self.readmap:
+            del self.readmap[fd]
+        if fd in self.writemap:
+            del self.writemap[fd]
 
     def poll(self, timeout=None):
         """Performs a poll and dispatches the resulting events."""
+        if not self.readmap and not self.writemap:
+            return
+        rlist = list(self.readmap)
+        wlist = list(self.writemap)
         try:
-            if self.poller:
-                events = self.poller.poll(timeout)
-            else:
-                events = self._select(timeout)
+            rlist, wlist, _ = select.select(rlist, wlist, [], timeout)
         except select.error, e:
             errno, message = e.args
             if errno == EINTR:
                 return
             else:
                 raise
-        for fd, event in events:
-            if fd in self.map:
-                handler = self.map[fd]
-                handler(fd, event, self)
-
-    def _select(self, timeout):
-        """Simple emulation of poll using select."""
-        rlist, wlist, _ = select.select(self.rlist, self.wlist, [], timeout)
-        events = [(fd, select.POLLIN) for fd in rlist]
-        events += [(fd, select.POLLOUT) for fd in wlist]
-        return events
+        for fd in rlist:
+            handler = self.readmap[fd]
+            handler(fd, self)
+        for fd in wlist:
+            handler = self.writemap[fd]
+            handler(fd, self)
 
 
 class Writer(threading.Thread):
