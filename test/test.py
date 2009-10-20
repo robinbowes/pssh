@@ -124,9 +124,9 @@ class PscpTest(unittest.TestCase):
         cmd = "%s/bin/pscp -r -h %s -l %s -p 64 -o %s -e %s -t 60 /etc/init.d /tmp/pssh.test < /dev/null" % (basedir, hostsFile.name, g_user, self.outDir, self.errDir)
         rv = os.system(cmd)
         self.assertEqual(rv, 0)
-        files = os.popen("ls -R /etc/init.d | sort | sed 1d").read().strip()
+        files = os.popen("ls -R /etc/init.d | sed 1d | sort").read().strip()
         for host in g_hosts:
-            cmd = "ssh %s@%s ls -R /tmp/pssh.test | sort | sed 1d" % (g_user, host)
+            cmd = "ssh %s@%s ls -R /tmp/pssh.test | sed 1d | sort" % (g_user, host)
             data = os.popen(cmd).read().strip()
             self.assertEqual(data, files)
 
@@ -192,9 +192,9 @@ class PslurpTest(unittest.TestCase):
         self.assertEqual(rv, 0)
 
         for host in g_hosts:
-            cmd = "ssh %s@%s ls -R /etc/init.d | sort | sed 1d" % (g_user, host)
+            cmd = "ssh %s@%s ls -R /etc/init.d | sed 1d | sort" % (g_user, host)
             data = os.popen(cmd).read()
-            self.assertEqual(data, os.popen("ls -R /tmp/pssh.test/%s/init.d | sort | sed 1d" % host).read())
+            self.assertEqual(data, os.popen("ls -R /tmp/pssh.test/%s/init.d | sed 1d | sort" % host).read())
 
 class PrsyncTest(unittest.TestCase):
     def setUp(self):
@@ -251,9 +251,9 @@ class PrsyncTest(unittest.TestCase):
         cmd = "%s/bin/prsync -r -h %s -l %s -p 64 -o %s -e %s -t 60 -a -z /etc/init.d/ /tmp/pssh.test < /dev/null" % (basedir, hostsFile.name, g_user, self.outDir, self.errDir)
         rv = os.system(cmd)
         self.assertEqual(rv, 0)
-        files = os.popen("ls -R /etc/init.d | sort | sed 1d").read().strip()
+        files = os.popen("ls -R /etc/init.d | sed 1d | sort").read().strip()
         for host in g_hosts:
-            cmd = "ssh %s@%s ls -R /tmp/pssh.test | sort | sed 1d" % (g_user, host)
+            cmd = "ssh %s@%s ls -R /tmp/pssh.test | sed 1d | sort" % (g_user, host)
             data = os.popen(cmd).read().strip()
             self.assertEqual(data, files)
 
