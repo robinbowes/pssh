@@ -64,8 +64,6 @@ def do_pscp(hosts, local, remote, opts):
         cmd = ['scp', '-qC']
         if opts.options:
             cmd += ['-o', opts.options]
-        if user:
-            cmd += ['-l', user]
         if port:
             cmd += ['-P', port]
         if opts.recursive:
@@ -75,6 +73,7 @@ def do_pscp(hosts, local, remote, opts):
             cmd.append('%s@%s:%s' % (user, host, remote))
         else:
             cmd.append('%s:%s' % (host, remote))
+        print 'the command: "%s"' % cmd
         t = Task(host, port, cmd, opts)
         manager.add_task(t)
     manager.run()
