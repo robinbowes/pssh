@@ -73,6 +73,10 @@ class PscpTest(unittest.TestCase):
     def teardown(self):
         shutil.rmtree(self.errDir)
         shutil.rmtree(self.outDir)
+        try:
+            os.remove("/tmp/pssh.test")
+        except OSError:
+            pass
 
     def testShortOpts(self):
         for host in g_hosts:
@@ -137,7 +141,10 @@ class PslurpTest(unittest.TestCase):
 
     def testShortOpts(self):
         if os.path.exists("/tmp/pssh.test"):
-            shutil.rmtree("/tmp/pssh.test")
+            try:
+                os.remove("/tmp/pssh.test")
+            except OSError:
+                shutil.rmtree("/tmp/pssh.test")
 
         hostsFile = tempfile.NamedTemporaryFile()
         hostsFile.write("".join(map(lambda x: "%s\n" % x, g_hosts)))
@@ -153,7 +160,10 @@ class PslurpTest(unittest.TestCase):
 
     def testLongOpts(self):
         if os.path.exists("/tmp/pssh.test"):
-            shutil.rmtree("/tmp/pssh.test")
+            try:
+                os.remove("/tmp/pssh.test")
+            except OSError:
+                shutil.rmtree("/tmp/pssh.test")
 
         hostsFile = tempfile.NamedTemporaryFile()
         hostsFile.write("".join(map(lambda x: "%s\n" % x, g_hosts)))
@@ -169,7 +179,10 @@ class PslurpTest(unittest.TestCase):
 
     def testRecursive(self):
         if os.path.exists("/tmp/pssh.test"):
-            shutil.rmtree("/tmp/pssh.test")
+            try:
+                os.remove("/tmp/pssh.test")
+            except OSError:
+                shutil.rmtree("/tmp/pssh.test")
 
         hostsFile = tempfile.NamedTemporaryFile()
         hostsFile.write("".join(map(lambda x: "%s\n" % x, g_hosts)))
