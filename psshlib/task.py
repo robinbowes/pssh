@@ -1,3 +1,5 @@
+# Copyright (c) 2009, Andrew McNabb
+
 from errno import EINTR
 from subprocess import Popen, PIPE
 import askpass

@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- Mode: python -*-
-#
-# Reads a password from the socket specified by the environment variable
-# PSSH_ASKPASS_SOCKET.  This file also contains the corresponding server
-# code.
-#
-# Created: 14 January 2009
+
+# Copyright (c) 2009, Andrew McNabb
+
+"""Reads a password from the socket specified by the environment variable
+PSSH_ASKPASS_SOCKET.  This file also contains the corresponding server
+code.
+"""
 
 import errno
 import getpass

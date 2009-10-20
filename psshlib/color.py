@@ -1,3 +1,6 @@
+# Copyright (c) 2009, Andrew McNabb
+# Copyright (c) 2003-2008, Brent N. Chun
+
 def with_color(str, fg, bg=49):
     '''Given foreground/background ANSI color codes, return a string that,
     when printed, will format the supplied string using the supplied colors.

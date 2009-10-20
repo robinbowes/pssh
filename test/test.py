@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# Copyright (c) 2009, Andrew McNabb
+# Copyright (c) 2003-2008, Brent N. Chun
+
 import os 
 import sys
 import shutil

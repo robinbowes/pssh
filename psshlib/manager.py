@@ -1,3 +1,5 @@
+# Copyright (c) 2009, Andrew McNabb
+
 from askpass import PasswordServer
 from errno import EINTR
 import select
