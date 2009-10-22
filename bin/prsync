@@ -64,15 +64,15 @@ def do_prsync(hosts, local, remote, opts):
         os.makedirs(opts.errdir)
     manager = Manager(opts)
     for host, port, user in hosts:
-        cmd = ['rsync']
+        ssh = ['ssh']
+        if opts.options:
+            ssh += ['-o', opts.options]
+        if port:
+            ssh += ['-p', port]
+
+        cmd = ['rsync', '-e', ' '.join(ssh)]
         if opts.verbose:
             cmd.append('-v')
-        if port:
-            cmd += ['--port', port]
-        if opts.options:
-            cmd += ['-e', 'ssh -o %s' % opts.options]
-        else:
-            cmd += ['-e', 'ssh']
         if opts.recursive:
             cmd.append('-r')
         if opts.archive:
