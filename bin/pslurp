@@ -80,7 +80,7 @@ def do_pslurp(hosts, remote, local, opts):
         if opts.options:
             cmd += ['-o', opts.options]
         if port:
-            cmd += ['-p', port]
+            cmd += ['-P', port]
         if opts.recursive:
             cmd.append('-r')
         if user:
