@@ -79,6 +79,7 @@ def do_prsync(hosts, local, remote, opts):
             cmd.append('-a')
         if opts.compress:
             cmd.append('-z')
+        cmd.extend(opts.extra)
         cmd.append(local)
         if user:
             cmd.append('%s@%s:%s' % (user, host, remote))

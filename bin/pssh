@@ -80,6 +80,7 @@ def do_pssh(hosts, cmdline, opts):
             cmd += ['-l', user]
         if port:
             cmd += ['-p', port]
+        cmd.extend(opts.extra)
         cmd.append(cmdline)
         t = Task(host, port, cmd, opts, stdin)
         manager.add_task(t)

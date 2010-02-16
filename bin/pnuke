@@ -60,6 +60,7 @@ def do_pnuke(hosts, pattern, opts):
             cmd += ['-l', user]
         if port:
             cmd += ['-p', port]
+        cmd.extend(opts.extra)
         cmd.append('pkill -9 %s' % pattern)
         t = Task(host, port, cmd, opts)
         manager.add_task(t)

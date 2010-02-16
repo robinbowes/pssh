@@ -4,6 +4,7 @@
 import optparse
 import os
 import pwd
+import shlex
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = -1 # "infinity" by default
@@ -40,6 +41,12 @@ def common_parser():
             help='turn on warning and diagnostic messages (OPTIONAL)')
     parser.add_option('-A', '--askpass', dest='askpass', action='store_true',
             help='Ask for a password (OPTIONAL)')
+    parser.add_option('-x', '--extra-args', action='callback', type='string',
+            metavar='ARGS', callback=shlex_append, dest='extra',
+            help='Extra command-line arguments, with processing for '
+            'spaces, quotes, and backslashes')
+    parser.add_option('-X', '--extra-arg', dest='extra', action='append',
+            metavar='ARG', help='Extra command-line argument')
 
     return parser
 
@@ -74,18 +81,14 @@ def common_defaults(**kwargs):
 
     return defaults
 
+def shlex_append(option, opt_str, value, parser):
+    """An optparse callback similar to the append action.
 
-def parse_args():
-    parser = option_parser()
-    opts, args = parser.parse_args()
-    #switch to this?: if opts.timeout <= 0:
-    if opts.timeout == -1:
-        opts.timeout = None
-
-    if len(args) == 0:
-        parser.error('Command not specified.')
-
-    if not opts.hosts:
-        parser.error('Hosts not specified.')
-
-    return opts, args
+    The given value is processed with shlex, and the resulting list is
+    concatenated to the option's dest list.
+    """
+    lst = getattr(parser.values, option.dest)
+    if lst is None:
+        lst = []
+        setattr(parser.values, option.dest, lst)
+    lst.extend(shlex.split(value))

@@ -83,6 +83,7 @@ def do_pslurp(hosts, remote, local, opts):
             cmd += ['-P', port]
         if opts.recursive:
             cmd.append('-r')
+        cmd.extend(opts.extra)
         if user:
             cmd.append('%s@%s:%s' % (user, host, remote))
         else:
