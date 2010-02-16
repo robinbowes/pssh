@@ -205,7 +205,7 @@ class Writer(threading.Thread):
                 if data == self.EOF:
                     dest.close()
                 else:
-                    print >>dest, data,
+                    dest.write(data)
 
     def open_files(self, host):
         """Called from another thread to create files for stdout and stderr.
