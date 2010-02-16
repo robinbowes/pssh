@@ -22,6 +22,7 @@ def common_parser():
     parser.add_option('-h', '--hosts', dest='host_files', action='append',
             help='hosts file (each line "host[:port] [user]")')
     parser.add_option('-H', '--host', dest='host_entries', action='append',
+            metavar='HOST_ENTRY',
             help='additional host entry ("[user@]host[:port]")')
     parser.add_option('-l', '--user', dest='user',
             help='username (OPTIONAL)')
