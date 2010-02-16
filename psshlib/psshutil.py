@@ -12,6 +12,8 @@ def read_hosts(pathnames, default_user=None, default_port=None):
     ssh, etc.)
     """
     lines = []
+    if not pathnames:
+        return lines
     for pathname in pathnames:
         f = open(pathname)
         for line in f:
@@ -43,3 +45,13 @@ def read_hosts(pathnames, default_user=None, default_port=None):
         hosts.append((host, port, user))
     return hosts
 
+def parse_host(host, default_user=None, default_port=None):
+    """Parses host entries of the form "[user@]host[:port]"."""
+    # TODO: when we stop supporting Python 2.4, switch to using str.partition.
+    user = default_user
+    port = default_port
+    if '@' in host:
+        user, host = host.split('@', 1)
+    if ':' in host:
+        host, port = host.rsplit(':', 1)
+    return (host, port, user)

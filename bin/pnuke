@@ -39,7 +39,7 @@ def parse_args():
     if len(args) > 1:
         parser.error('Extra arguments given after the pattern.')
 
-    if not opts.host_files:
+    if not opts.host_files and not opts.host_entries:
         parser.error('Hosts not specified.')
 
     return opts, args
@@ -69,4 +69,6 @@ if __name__ == "__main__":
     opts, args = parse_args()
     pattern = args[0]
     hosts = psshutil.read_hosts(opts.host_files, default_user=opts.user)
+    for entry in opts.host_entries:
+        hosts.append(psshutil.parse_host(entry, default_user=opts.user))
     do_pnuke(hosts, pattern, opts)
