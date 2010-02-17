@@ -83,7 +83,8 @@ def do_prsync(hosts, local, remote, opts):
             cmd.append('-a')
         if opts.compress:
             cmd.append('-z')
-        cmd.extend(opts.extra)
+        if opts.extra:
+            cmd.extend(opts.extra)
         cmd.append(local)
         if user:
             cmd.append('%s@%s:%s' % (user, host, remote))
@@ -101,6 +102,7 @@ if __name__ == "__main__":
         print "Remote path %s must be an absolute path" % remote
         sys.exit(3)
     hosts = psshutil.read_hosts(opts.host_files, default_user=opts.user)
-    for entry in opts.host_entries:
-        hosts.append(psshutil.parse_host(entry, default_user=opts.user))
+    if opts.host_entries:
+        for entry in opts.host_entries:
+            hosts.append(psshutil.parse_host(entry, default_user=opts.user))
     do_prsync(hosts, local, remote, opts)

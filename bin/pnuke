@@ -60,7 +60,8 @@ def do_pnuke(hosts, pattern, opts):
             cmd += ['-l', user]
         if port:
             cmd += ['-p', port]
-        cmd.extend(opts.extra)
+        if opts.extra:
+            cmd.extend(opts.extra)
         cmd.append('pkill -9 %s' % pattern)
         t = Task(host, port, cmd, opts)
         manager.add_task(t)
@@ -70,6 +71,7 @@ if __name__ == "__main__":
     opts, args = parse_args()
     pattern = args[0]
     hosts = psshutil.read_hosts(opts.host_files, default_user=opts.user)
-    for entry in opts.host_entries:
-        hosts.append(psshutil.parse_host(entry, default_user=opts.user))
+    if opts.host_entries:
+        for entry in opts.host_entries:
+            hosts.append(psshutil.parse_host(entry, default_user=opts.user))
     do_pnuke(hosts, pattern, opts)
