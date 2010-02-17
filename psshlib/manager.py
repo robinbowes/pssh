@@ -1,11 +1,18 @@
 # Copyright (c) 2009, Andrew McNabb
 
-from askpass import PasswordServer
 from errno import EINTR
-import select
 import os
-import Queue
+import select
+import sys
 import threading
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue
+
+from psshlib.askpass import PasswordServer
+
 
 class Manager(object):
     """Executes tasks concurrently.
@@ -156,7 +163,8 @@ class IOMap(object):
         wlist = list(self.writemap)
         try:
             rlist, wlist, _ = select.select(rlist, wlist, [], timeout)
-        except select.error, e:
+        except select.error:
+            _, e, _ = sys.exc_info()
             errno, message = e.args
             if errno == EINTR:
                 return
@@ -185,7 +193,7 @@ class Writer(threading.Thread):
         threading.Thread.__init__(self)
         # A daemon thread automatically dies if the program is terminated.
         self.setDaemon(True)
-        self.queue = Queue.Queue()
+        self.queue = queue.Queue()
         self.outdir = outdir
         self.errdir = errdir
 

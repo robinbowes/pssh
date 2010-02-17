@@ -33,7 +33,7 @@ class PasswordServer(object):
         """
         message = ('Warning: do not enter your password if anyone else has'
                 ' superuser privileges or access to your account.')
-        print textwrap.fill(message)
+        print (textwrap.fill(message))
 
         self.password = getpass.getpass()
 
@@ -49,7 +49,8 @@ class PasswordServer(object):
     def handle_listen(self, fd, iomap):
         try:
             conn, address = self.sock.accept()
-        except socket.error, e:
+        except socket.error:
+            _, e, _ = sys.exc_info()
             number, string = e.args
             if number == errno.EINTR:
                 return
@@ -67,7 +68,8 @@ class PasswordServer(object):
         conn = self.socketmap[fd]
         try:
             bytes_written = conn.send(buffer)
-        except socket.error, e:
+        except socket.error:
+            _, e, _ = sys.exc_info()
             number, string = e.args
             if number == errno.EINTR:
                 return
@@ -99,25 +101,26 @@ class PasswordServer(object):
 def password_client():
     address = os.getenv('PSSH_ASKPASS_SOCKET')
     if not address:
-        print >>sys.stderr, textwrap.fill("Permission denied.  Please create"
-                " SSH keys or use the -A option to provide a password.")
+        sys.stderr.write(textwrap.fill("Permission denied.  Please create"
+                " SSH keys or use the -A option to provide a password.\n"))
         sys.exit(1)
 
     sock = socket.socket(socket.AF_UNIX)
     try:
         sock.connect(address)
-    except socket.error, e:
+    except socket.error:
+        _, e, _ = sys.exc_info()
         number, message = e.args
-        print >>sys.stderr, "Couldn't bind to %s: %s." % (address, message)
+        sys.stderr.write("Couldn't bind to %s: %s.\n" % (address, message))
         sys.exit(2)
 
     try:
         password = sock.makefile().read()
-    except socket.error, e:
-        print >>sys.stderr, "Socket error."
+    except socket.error:
+        sys.stderr.write("Socket error.\n")
         sys.exit(3)
 
-    print password
+    print (password)
 
 
 if __name__ == '__main__':

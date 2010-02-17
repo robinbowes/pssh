@@ -2,13 +2,14 @@
 
 from errno import EINTR
 from subprocess import Popen, PIPE
-import askpass
-import color
 import os
 import signal
 import sys
 import time
 import traceback
+
+from psshlib import askpass
+from psshlib import color
 
 BUFFER_SIZE = 1 << 16
 
@@ -136,7 +137,8 @@ class Task(object):
                 self.inputbuffer = self.inputbuffer[bytes_written:]
             else:
                 self.close_stdin(iomap)
-        except (OSError, IOError), e:
+        except (OSError, IOError):
+            _, e, _ = sys.exc_info()
             if e.errno != EINTR:
                 self.close_stdin(iomap)
                 self.log_exception(e)
@@ -157,10 +159,13 @@ class Task(object):
                 if self.outfile:
                     self.writer.write(self.outfile, buf)
                 if self.print_out:
-                    print '%s: %s' % (self.host, buf),
+                    sys.stdout.write('%s: %s' % (self.host, buf))
+                    if buf[-1] != '\n':
+                        sys.stdout.write('\n')
             else:
                 self.close_stdout(iomap)
-        except (OSError, IOError), e:
+        except (OSError, IOError):
+            _, e, _ = sys.exc_info()
             if e.errno != EINTR:
                 self.close_stdout(iomap)
                 self.log_exception(e)
@@ -185,7 +190,8 @@ class Task(object):
                     self.writer.write(self.errfile, buf)
             else:
                 self.close_stderr(iomap)
-        except (OSError, IOError), e:
+        except (OSError, IOError):
+            _, e, _ = sys.exc_info()
             if e.errno != EINTR:
                 self.close_stderr(iomap)
                 self.log_exception(e)
@@ -217,24 +223,25 @@ class Task(object):
             progress = color.c("[%s]" % color.B(n))
             success = color.g("[%s]" % color.B("SUCCESS"))
             failure = color.r("[%s]" % color.B("FAILURE"))
-            stderr = color.r("Stderr:")
+            stderr = color.r("Stderr: ")
             error = color.r(color.B(error))
         else:
             progress = "[%s]" % n
             success = "[SUCCESS]"
             failure = "[FAILURE]"
-            stderr = "Stderr:"
+            stderr = "Stderr: "
         if self.port:
             host = '%s:%s' % (self.host, self.port)
         else:
             host = self.host
         if self.failures:
-            print progress, tstamp, failure, host, error
+            print (progress, tstamp, failure, host, error)
         else:
-            print progress, tstamp, success, host
+            print (progress, tstamp, success, host)
         if self.outputbuffer:
-            print self.outputbuffer,
+            sys.stdout.write(self.outputbuffer)
         if self.errorbuffer:
-            print stderr, self.errorbuffer,
+            sys.stdout.write(stderr)
+            sys.stdout.write(self.errorbuffer)
         sys.stdout.flush()
 

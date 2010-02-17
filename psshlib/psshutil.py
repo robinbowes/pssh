@@ -31,7 +31,7 @@ def read_hosts(pathnames, default_user=None, default_port=None):
         elif len(fields) == 2:
             addr, user = fields
         else:
-            print "Bad line. Must be host[:port] [login]"
+            sys.stderr.write("Bad line. Must be host[:port] [login]\n")
             sys.exit(3)
         addr_fields = addr.split(':')
         if len(addr_fields) == 1:
@@ -40,7 +40,7 @@ def read_hosts(pathnames, default_user=None, default_port=None):
         elif len(addr_fields) == 2:
             host, port = addr_fields
         else:
-            print "Bad line. Must be host[:port] [login]"
+            sys.stderr.write("Bad line. Must be host[:port] [login]\n")
             sys.exit(3)
         hosts.append((host, port, user))
     return hosts
