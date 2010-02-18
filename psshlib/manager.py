@@ -3,6 +3,7 @@
 from errno import EINTR
 import os
 import select
+import signal
 import sys
 import threading
 
@@ -12,6 +13,8 @@ except ImportError:
     import Queue as queue
 
 from psshlib.askpass import PasswordServer
+
+READ_SIZE = 1 << 16
 
 
 class Manager(object):
@@ -52,11 +55,14 @@ class Manager(object):
                 pass_server.start(self.iomap, self.limit)
                 self.askpass_socket = pass_server.address
 
+            self.set_sigchld_handler()
+
             try:
                 self.start_tasks(writer)
                 wait = None
                 while self.running or self.tasks:
-                    if wait == None or wait < 1:
+                    # Opt for efficiency over subsecond timeout accuracy.
+                    if wait is None or wait < 1:
                         wait = 1
                     self.iomap.poll(wait)
                     self.check_tasks()
@@ -75,6 +81,21 @@ class Manager(object):
         if writer:
             writer.signal_quit()
             writer.join()
+
+    def set_sigchld_handler(self):
+        signal.signal(signal.SIGCHLD, self.handle_sigchld)
+
+    def handle_sigchld(self, number, frame):
+        """Apparently we need a sigchld handler to make set_wakeup_fd work."""
+        # Write to the signal pipe (only for Python <2.5, where the
+        # set_wakeup_fd method doesn't exist).
+        if self.iomap.wakeup_writefd:
+            self.iomap.wakeup_writefd.write('\0')
+        for task in self.running:
+            task.proc.poll()
+        # Apparently some UNIX systems automatically resent the SIGCHLD
+        # handler to SIG_DFL.  Reset it just in case.
+        self.set_sigchld_handler()
 
     def add_task(self, task):
         """Adds a Task to be processed with run()."""
@@ -143,6 +164,16 @@ class IOMap(object):
         self.readmap = {}
         self.writemap = {}
 
+        # Setup the wakeup file descriptor to avoid hanging on lost signals.
+        wakeup_readfd, wakeup_writefd = os.pipe()
+        self.register_read(wakeup_readfd, self.wakeup_handler)
+        # TODO: remove test when we stop supporting Python <2.5
+        if hasattr(signal, 'set_wakeup_fd'):
+            signal.set_wakeup_fd(wakeup_writefd)
+            self.wakeup_writefd = None
+        else:
+            self.wakeup_writefd = wakeup_writefd
+
     def register_read(self, fd, handler):
         """Registers an IO handler for a file descriptor for reading."""
         self.readmap[fd] = handler
@@ -179,6 +210,21 @@ class IOMap(object):
         for fd in wlist:
             handler = self.writemap[fd]
             handler(fd, self)
+
+    def wakeup_handler(self, fd, iomap):
+        """Handles read events on the signal wakeup pipe.
+
+        This ensures that SIGCHLD signals aren't lost.
+        """
+        try:
+            os.read(fd, READ_SIZE)
+        except (OSError, IOError):
+            _, e, _ = sys.exc_info()
+            errno, message = e.args
+            if errno != EINTR:
+                sys.stderr.write('Fatal error reading from wakeup pipe: %s\n'
+                        % message)
+                sys.exit(-1)
 
 
 class Writer(threading.Thread):
