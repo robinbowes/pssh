@@ -33,7 +33,7 @@ class PasswordServer(object):
         """
         message = ('Warning: do not enter your password if anyone else has'
                 ' superuser privileges or access to your account.')
-        print (textwrap.fill(message))
+        print(textwrap.fill(message))
 
         self.password = getpass.getpass()
 
@@ -120,7 +120,7 @@ def password_client():
         sys.stderr.write("Socket error.\n")
         sys.exit(3)
 
-    print (password)
+    print(password)
 
 
 if __name__ == '__main__':

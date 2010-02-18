@@ -235,9 +235,9 @@ class Task(object):
         else:
             host = self.host
         if self.failures:
-            print (progress, tstamp, failure, host, error)
+            print(' '.join((progress, tstamp, failure, host, error)))
         else:
-            print (progress, tstamp, success, host)
+            print(' '.join((progress, tstamp, success, host)))
         if self.outputbuffer:
             sys.stdout.write(self.outputbuffer)
         if self.errorbuffer:

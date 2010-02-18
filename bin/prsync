@@ -99,7 +99,7 @@ if __name__ == "__main__":
     local = args[0]
     remote = args[1]
     if not re.match("^/", remote):
-        print ("Remote path %s must be an absolute path" % remote)
+        print("Remote path %s must be an absolute path" % remote)
         sys.exit(3)
     hosts = psshutil.read_hosts(opts.host_files, default_user=opts.user)
     if opts.host_entries:
