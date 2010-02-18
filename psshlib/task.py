@@ -254,12 +254,11 @@ class Task(object):
             except AttributeError:
                 sys.stdout.write(self.outputbuffer)
         if self.errorbuffer:
-            sys.stdout.flush()
             sys.stdout.write(stderr)
+            # Flush the TextIOWrapper before writing to the binary buffer.
             sys.stdout.flush()
             try:
                 sys.stdout.buffer.write(self.errorbuffer)
             except AttributeError:
                 sys.stdout.write(self.errorbuffer)
-            sys.stdout.flush()
 

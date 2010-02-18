@@ -102,7 +102,8 @@ def password_client():
     address = os.getenv('PSSH_ASKPASS_SOCKET')
     if not address:
         sys.stderr.write(textwrap.fill("Permission denied.  Please create"
-                " SSH keys or use the -A option to provide a password.\n"))
+                " SSH keys or use the -A option to provide a password."))
+        sys.stderr.write('\n')
         sys.exit(1)
 
     sock = socket.socket(socket.AF_UNIX)
