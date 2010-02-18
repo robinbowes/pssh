@@ -13,6 +13,12 @@ from psshlib import color
 
 BUFFER_SIZE = 1 << 16
 
+try:
+    bytes
+except NameError:
+    bytes = str
+
+
 class Task(object):
     """Starts a process and manages its input and output."""
     def __init__(self, host, port, cmd, opts, stdin=None):
@@ -26,8 +32,8 @@ class Task(object):
         self.failures = []
         self.killed = False
         self.inputbuffer = stdin
-        self.outputbuffer = ''
-        self.errorbuffer = ''
+        self.outputbuffer = bytes()
+        self.errorbuffer = bytes()
 
         self.stdin = None
         self.stdout = None
@@ -238,10 +244,22 @@ class Task(object):
             print(' '.join((progress, tstamp, failure, host, error)))
         else:
             print(' '.join((progress, tstamp, success, host)))
+        # NOTE: The extra flushes are to ensure that the data is output in
+        # the correct order with the C implementation of io.
         if self.outputbuffer:
-            sys.stdout.write(self.outputbuffer)
+            sys.stdout.flush()
+            try:
+                sys.stdout.buffer.write(self.outputbuffer)
+                sys.stdout.flush()
+            except AttributeError:
+                sys.stdout.write(self.outputbuffer)
         if self.errorbuffer:
+            sys.stdout.flush()
             sys.stdout.write(stderr)
-            sys.stdout.write(self.errorbuffer)
-        sys.stdout.flush()
+            sys.stdout.flush()
+            try:
+                sys.stdout.buffer.write(self.errorbuffer)
+            except AttributeError:
+                sys.stdout.write(self.errorbuffer)
+            sys.stdout.flush()
 

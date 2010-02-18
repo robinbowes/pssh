@@ -112,7 +112,10 @@ class Manager(object):
             if min_timeleft is None or timeleft < min_timeleft:
                 min_timeleft = timeleft
 
-        return max(0, min_timeleft)
+        if min_timeleft is None:
+            return 0
+        else:
+            return max(0, min_timeleft)
 
     def interrupted(self):
         """Cleans up after a keyboard interrupt."""
@@ -207,7 +210,7 @@ class Writer(threading.Thread):
                 return
 
             if data == self.OPEN:
-                self.files[filename] = open(filename, 'w', buffering=1)
+                self.files[filename] = open(filename, 'wb', buffering=1)
             else:
                 dest = self.files[filename]
                 if data == self.EOF:
