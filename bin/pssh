@@ -52,14 +52,23 @@ def parse_args():
 
     return opts, args
 
+# TODO: verify whether this function is really doing the right thing
+#       (it definitely seems fishy to me)
 def buffer_input():
-    origfl = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
-    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl | os.O_NONBLOCK)
+    fileno = sys.stdin.fileno()
+    origfl = fcntl.fcntl(fileno, fcntl.F_GETFL)
+    fcntl.fcntl(fileno, fcntl.F_SETFL, origfl | os.O_NONBLOCK)
     try:
-        stdin = sys.stdin.read()
+        # Python 3
+        read_stdin = sys.stdin.buffer.read
+    except AttributeError:
+        # Python 2
+        read_stdin = sys.stdin.read
+    try:
+        stdin = read_stdin()
     except IOError: # Stdin contained no information
         stdin = ""
-    fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, origfl)
+    fcntl.fcntl(fileno, fcntl.F_SETFL, origfl)
     return stdin
 
 def do_pssh(hosts, cmdline, opts):
