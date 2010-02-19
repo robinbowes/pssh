@@ -47,7 +47,7 @@ def parse_args():
     parser.set_defaults(**defaults)
     opts, args = parser.parse_args()
 
-    if len(args) == 0:
+    if len(args) == 0 and not opts.send_input:
         parser.error('Command not specified.')
 
     if not opts.host_files and not opts.host_entries:
@@ -102,7 +102,8 @@ def do_pssh(hosts, cmdline, opts):
             cmd += ['-p', port]
         if opts.extra:
             cmd.extend(opts.extra)
-        cmd.append(cmdline)
+        if cmdline:
+            cmd.append(cmdline)
         t = Task(host, port, user, cmd, opts, stdin)
         manager.add_task(t)
     manager.run()
