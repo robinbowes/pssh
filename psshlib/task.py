@@ -21,10 +21,17 @@ except NameError:
 
 class Task(object):
     """Starts a process and manages its input and output."""
-    def __init__(self, host, port, cmd, opts, stdin=None):
+    def __init__(self, host, port, user, cmd, opts, stdin=None):
         self.host = host
+        self.pretty_host = host
         self.port = port
         self.cmd = cmd
+
+        print 'user:', user, 'opts.user:', opts.user
+        if user != opts.user:
+            self.pretty_host = '@'.join((user, self.pretty_host))
+        if port:
+            self.pretty_host = ':'.join((self.pretty_host, port))
 
         self.proc = None
         self.writer = None
@@ -57,7 +64,7 @@ class Task(object):
         self.writer = writer
 
         if writer:
-            self.outfile, self.errfile = writer.open_files(self.host)
+            self.outfile, self.errfile = writer.open_files(self.pretty_host)
 
         # Set up the environment.
         environ = dict(os.environ)
