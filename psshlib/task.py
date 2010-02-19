@@ -27,7 +27,6 @@ class Task(object):
         self.port = port
         self.cmd = cmd
 
-        print 'user:', user, 'opts.user:', opts.user
         if user != opts.user:
             self.pretty_host = '@'.join((user, self.pretty_host))
         if port:
