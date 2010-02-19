@@ -12,7 +12,7 @@ try:
 except ImportError:
     import Queue as queue
 
-from psshlib.askpass import PasswordServer
+from psshlib.askpass_server import PasswordServer
 
 READ_SIZE = 1 << 16
 
