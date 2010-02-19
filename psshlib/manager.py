@@ -95,7 +95,8 @@ class Manager(object):
         if self.iomap.wakeup_writefd:
             self.iomap.wakeup_writefd.write('\0')
         for task in self.running:
-            task.proc.poll()
+            if task.proc:
+                task.proc.poll()
         # Apparently some UNIX systems automatically resent the SIGCHLD
         # handler to SIG_DFL.  Reset it just in case.
         self.set_sigchld_handler()
