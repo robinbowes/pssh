@@ -28,13 +28,16 @@ _DEFAULT_TIMEOUT = 60
 
 def option_parser():
     parser = common_parser()
-    parser.usage = "%prog [OPTIONS] -h hosts.txt command [...]"
+    parser.usage = "%prog [OPTIONS] command [...]"
     parser.epilog = "Example: pssh -h hosts.txt -l irb2 -o /tmp/foo uptime"
 
     parser.add_option('-P', '--print', dest='print_out', action='store_true',
-            help='print output as we get it (OPTIONAL)')
+            help='print output as we get it')
     parser.add_option('-i', '--inline', dest='inline', action='store_true',
-            help='inline aggregated output for each server (OPTIONAL)')
+            help='inline aggregated output for each server')
+    parser.add_option('-I', '--send-input', dest='send_input',
+            action='store_true',
+            help='read from standard input and send as input to ssh')
 
     return parser
 
@@ -52,9 +55,11 @@ def parse_args():
 
     return opts, args
 
-# TODO: verify whether this function is really doing the right thing
-#       (it definitely seems fishy to me)
 def buffer_input():
+    """Read any immediately available data from standard input.
+
+    Doesn't work if stdin blocks for any reason.  This needs to be deprecated.
+    """
     fileno = sys.stdin.fileno()
     origfl = fcntl.fcntl(fileno, fcntl.F_GETFL)
     fcntl.fcntl(fileno, fcntl.F_SETFL, origfl | os.O_NONBLOCK)
@@ -76,7 +81,13 @@ def do_pssh(hosts, cmdline, opts):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
         os.makedirs(opts.errdir)
-    stdin = buffer_input()
+    if opts.send_input:
+        stdin = sys.stdin.read()
+    else:
+        stdin = buffer_input()
+        if stdin:
+            sys.stderr.write('Automatic reading from stdin is deprecated.  '
+                    'Please use the -I option.\n')
     manager = Manager(opts)
     for host, port, user in hosts:
         cmd = ['ssh', host, '-o', 'NumberOfPasswordPrompts=1',
