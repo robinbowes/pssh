@@ -71,8 +71,7 @@ class Task(object):
         # Disable the GNOME pop-up password dialog and allow ssh to use
         # askpass.py to get a provided password.  If the module file is
         # askpass.pyc, we replace the extension.
-        root, ext = os.path.splitext(os.path.abspath(askpass.__file__))
-        environ['SSH_ASKPASS'] = '%s.py' % root
+        environ['SSH_ASKPASS'] = askpass.executable_path()
         if askpass_socket:
             environ['PSSH_ASKPASS_SOCKET'] = askpass_socket
         # Work around a mis-feature in ssh where it won't call SSH_ASKPASS

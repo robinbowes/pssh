@@ -3,9 +3,7 @@
 
 # Copyright (c) 2009, Andrew McNabb
 
-"""Reads a password from the socket specified by the environment variable
-PSSH_ASKPASS_SOCKET.  This file also contains the corresponding server
-code.
+"""Sends the password over a socket to askpass.
 """
 
 import errno
