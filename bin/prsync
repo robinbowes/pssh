@@ -14,8 +14,9 @@ import os
 import re
 import sys
 
-basedir, bin = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
-sys.path.append("%s" % basedir)
+parent, bindir = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
+if os.path.exists(os.path.join(parent, 'psshlib')):
+    sys.path.insert(0, parent)
 
 from psshlib import psshutil
 from psshlib.task import Task
