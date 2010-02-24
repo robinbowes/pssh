@@ -27,7 +27,9 @@ bin_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 askpass_bin_path = os.path.join(bin_dir, 'pssh-askpass')
 ASKPASS_PATHS = (askpass_bin_path,
         '/usr/libexec/pssh/pssh-askpass',
-        '/usr/local/libexec/pssh/pssh-askpass')
+        '/usr/local/libexec/pssh/pssh-askpass',
+        '/usr/lib/pssh/pssh-askpass',
+        '/usr/local/lib/pssh/pssh-askpass')
 
 _executable_path = None
 
