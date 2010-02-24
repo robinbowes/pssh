@@ -1,3 +1,36 @@
+2010-02-24 Andrew McNabb <amcnabb at mcnabbs.org>
+	* Version 2.1
+	  - Added support for Python 3.0 and 3.1.  Although PSSH has only
+	    been lightly tested with Python 3, anything that doesn't work
+		in Python 3 is officially a bug.
+	  - Added a "-H" option for specifying hosts one-by-one instead of
+	    or in addition to a hosts file.
+	  - Added "-x" and "-X" options for passing extra command-line
+	    arguments to ssh and rsync.  Also added a "-S" option to prsync
+		for the special case of passing extra arguments to ssh
+		(issue #2).
+	  - Added a "-I" option for specifying that pssh should read from
+	    standard input, and added a deprecation warning when standard
+		input is used without this option (issue #12).
+	  - Made the command argument optional when the "-I" option is
+	    given, so a script can be passed to pssh on standard input
+		(issue #5).
+	  - If a username or port is given, these are now included in the
+	    output filename, which allows different connections to be
+		distinguished from each other (issue #7).
+	  - Added the pssh-askpass wrapper as a standalone script because
+	    setup.py was removing the executable bit from askpass.py.  This
+		fixes a "permission denied" error when using the -A option
+		(issue #8).
+	  - Fixed a problem where pssh was unnecessarily specifying a
+	    username (issue #14).
+	  - Fixed a delay due to a lost SIGCHLD signal.
+	  - Removed extra spaces between output chunks in outdir files
+	    (issue #6).  Thanks to knutsen for the fix.
+	  - Fixed a bug where pscp passed the wrong option for sending scp
+	    a custom port.  Thanks to Jan Rafaj for the patch.
+	  - Fixed prsync to send the port as an option to ssh (issue #1).
+	    Thanks to Ryan Brothers for the fix.
 2009-10-20 Andrew McNabb <amcnabb at mcnabbs.org>
 	* Version 2.0
 	  - Rewrote communication code to be more efficient.  PSSH now
