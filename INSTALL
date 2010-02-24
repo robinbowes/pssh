@@ -1,3 +1,6 @@
+Installing PSSH
+===============
+
 If you don't already have setuptools installed:
 
   # wget 'http://peak.telecommunity.com/dist/ez_setup.py'
@@ -8,3 +11,15 @@ Then:
   # sudo python setup.py install
 
 Share and enjoy!
+
+
+Instructions for Packagers
+--------------------------
+
+Packagers create RPM or deb files for Linux distributions.  If you are a
+normal user, please skip this section.
+
+Packaging PSSH is pretty straightforward.  Just do a setup.py install, and
+then move usr/bin/pssh-askpass to usr/libexec/pssh/pssh-askpass.  Although
+having pssh-askpass in /usr/bin doesn't really hurt anything, it's not
+necessary, so it's cleaner to move it to /usr/libexec.

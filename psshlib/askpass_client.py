@@ -23,10 +23,9 @@ import socket
 import sys
 import textwrap
 
-askpass_path = os.path.splitext(os.path.abspath(__file__))[0] + '.py'
-ASKPASS_PATHS = (askpass_path,
-        '/usr/bin/pssh-askpass',
-        '/usr/local/bin/pssh-askpass',
+bin_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+askpass_bin_path = os.path.join(bin_dir, 'pssh-askpass')
+ASKPASS_PATHS = (askpass_bin_path,
         '/usr/libexec/pssh/pssh-askpass',
         '/usr/local/libexec/pssh/pssh-askpass')
 
@@ -51,7 +50,7 @@ def executable_path():
             sys.stderr.write('\n')
     return _executable_path
 
-def password_client():
+def askpass_main():
     """Connects to pssh over the socket specified at PSSH_ASKPASS_SOCKET."""
     address = os.getenv('PSSH_ASKPASS_SOCKET')
     if not address:
@@ -79,4 +78,4 @@ def password_client():
 
 
 if __name__ == '__main__':
-    password_client()
+    askpass_main()

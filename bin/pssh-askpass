@@ -1,4 +1,4 @@
 #!/usr/bin/env python
 
-from psshlib.askpass import password_client
-password_client()
+from psshlib.askpass_client import askpass_main
+askpass_main()

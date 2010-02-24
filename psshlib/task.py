@@ -8,7 +8,7 @@ import sys
 import time
 import traceback
 
-from psshlib import askpass
+from psshlib import askpass_client
 from psshlib import color
 
 BUFFER_SIZE = 1 << 16
@@ -71,7 +71,7 @@ class Task(object):
         # Disable the GNOME pop-up password dialog and allow ssh to use
         # askpass.py to get a provided password.  If the module file is
         # askpass.pyc, we replace the extension.
-        environ['SSH_ASKPASS'] = askpass.executable_path()
+        environ['SSH_ASKPASS'] = askpass_client.executable_path()
         if askpass_socket:
             environ['PSSH_ASKPASS_SOCKET'] = askpass_socket
         # Work around a mis-feature in ssh where it won't call SSH_ASKPASS
