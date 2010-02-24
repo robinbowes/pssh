@@ -25,8 +25,10 @@ import textwrap
 
 askpass_path = os.path.splitext(os.path.abspath(__file__))[0] + '.py'
 ASKPASS_PATHS = (askpass_path,
-        '/usr/libexec/pssh/pssh_askpass',
-        '/usr/local/libexec/pssh/pssh_askpass')
+        '/usr/bin/pssh-askpass',
+        '/usr/local/bin/pssh-askpass',
+        '/usr/libexec/pssh/pssh-askpass',
+        '/usr/local/libexec/pssh/pssh-askpass')
 
 _executable_path = None
 

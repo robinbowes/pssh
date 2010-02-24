@@ -34,5 +34,5 @@ setup(
         ],
 
     packages = find_packages(),
-    scripts = [os.path.join("bin", p) for p in ["pssh", "pnuke", "prsync", "pslurp", "pscp"]]
+    scripts = [os.path.join("bin", p) for p in ["pssh", "pnuke", "prsync", "pslurp", "pscp", "pssh-askpass"]]
     )
