@@ -93,7 +93,7 @@ class Manager(object):
         # Write to the signal pipe (only for Python <2.5, where the
         # set_wakeup_fd method doesn't exist).
         if self.iomap.wakeup_writefd:
-            self.iomap.wakeup_writefd.write('\0')
+            os.write(self.iomap.wakeup_writefd, '\0')
         for task in self.running:
             if task.proc:
                 task.proc.poll()
