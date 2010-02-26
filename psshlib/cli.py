@@ -21,7 +21,8 @@ def common_parser():
     parser.epilog = "Example: pssh -h nodes.txt -l irb2 -o /tmp/foo uptime"
 
     parser.add_option('-h', '--hosts', dest='host_files', action='append',
-            help='hosts file (each line "host[:port] [user]")')
+            metavar='HOST_FILE',
+            help='hosts file (each line "[user@]host[:port]")')
     parser.add_option('-H', '--host', dest='host_entries', action='append',
             metavar='HOST_ENTRY',
             help='additional host entry ("[user@]host[:port]")')

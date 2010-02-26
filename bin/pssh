@@ -32,13 +32,13 @@ def option_parser():
     parser.usage = "%prog [OPTIONS] command [...]"
     parser.epilog = "Example: pssh -h hosts.txt -l irb2 -o /tmp/foo uptime"
 
-    parser.add_option('-P', '--print', dest='print_out', action='store_true',
-            help='print output as we get it')
     parser.add_option('-i', '--inline', dest='inline', action='store_true',
             help='inline aggregated output for each server')
     parser.add_option('-I', '--send-input', dest='send_input',
             action='store_true',
             help='read from standard input and send as input to ssh')
+    parser.add_option('-P', '--print', dest='print_out', action='store_true',
+            help='print output as we get it')
 
     return parser
 
