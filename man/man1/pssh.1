@@ -1,0 +1,84 @@
+.\" Man page for pssh.  See "man 7 man" and "man man-pages" for formatting info.
+.TH pssh 1 "February 25, 2010"
+
+.SH NAME
+pssh \(em parallel ssh program
+
+
+.SH SYNOPSIS
+.B pssh
+.RB [ \-vAiIP ]
+.RB [ \-h
+.IR hosts_file ]
+.RB [ \-H
+.RI [ user @] host [: port ]]
+.RB [ \-l
+.IR user ]
+.RB [ \-p
+.IR par ]
+.RB [ \-o
+.IR outdir ]
+.RB [ \-e
+.IR errdir ]
+.RB [ \-t
+.IR timeout ]
+.RB [ \-O
+.IR options ]
+.RB [ \-x
+.IR args ]
+.RB [ \-X
+.IR arg ]
+.I command ...
+
+.B pssh \-I
+.RB [ \-vAiIP ]
+.RB [ \-h
+.IR hosts_file ]
+.RB [ \-H
+.RI [ user @] host [: port ]]
+.RB [ \-l
+.IR user ]
+.RB [ \-p
+.IR par ]
+.RB [ \-o
+.IR outdir ]
+.RB [ \-e
+.IR errdir ]
+.RB [ \-t
+.IR timeout ]
+.RB [ \-O
+.IR options ]
+.RB [ \-x
+.IR args ]
+.RB [ \-X
+.IR arg ]
+.RI [ command
+.IR ... ]
+
+
+.SH DESCRIPTION
+.PP
+.B pssh
+is...
+
+
+.SH OPTIONS
+
+Options go here.
+
+
+.SH EXAMPLE
+
+Examples go here.
+
+
+.SH AUTHORS
+Written by
+Andrew McNabb <amcnabb@mcnabbs.org>
+and Brent N. Chun <bnc@theether.org>.  
+
+http://code.google.com/p/parallel-ssh/
+
+
+.SH SEE ALSO
+.BR ssh (1)
