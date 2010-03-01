@@ -58,15 +58,14 @@ class Manager(object):
             self.set_sigchld_handler()
 
             try:
-                self.start_tasks(writer)
+                self.update_tasks(writer)
                 wait = None
                 while self.running or self.tasks:
                     # Opt for efficiency over subsecond timeout accuracy.
                     if wait is None or wait < 1:
                         wait = 1
                     self.iomap.poll(wait)
-                    self.check_tasks()
-                    self.start_tasks(writer)
+                    self.update_tasks(writer)
                     wait = self.check_timeout()
             except KeyboardInterrupt:
                 # This exception handler tries to clean things up and prints
@@ -81,6 +80,9 @@ class Manager(object):
         if writer:
             writer.signal_quit()
             writer.join()
+
+    def clear_sigchld_handler(self):
+        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
     def set_sigchld_handler(self):
         # TODO: find out whether set_wakeup_fd still works if the default
@@ -105,23 +107,47 @@ class Manager(object):
         """Adds a Task to be processed with run()."""
         self.tasks.append(task)
 
-    def start_tasks(self, writer):
-        """Starts as many tasks as allowed."""
+    def update_tasks(self, writer):
+        """Reaps tasks and starts as many new ones as allowed."""
+        # Mask signals to work around a Python bug:
+        #   http://bugs.python.org/issue1068268
+        # Since sigprocmask isn't in the stdlib, clear the SIGCHLD handler.
+        # Since signals are masked, reap_tasks needs to be called once for
+        # each loop.
+        keep_running = True
+        while keep_running:
+            self.clear_sigchld_handler()
+            self._start_tasks_once(writer)
+            self.set_sigchld_handler()
+            keep_running = self.reap_tasks()
+
+    def _start_tasks_once(self, writer):
+        """Starts tasks once.
+
+        Due to http://bugs.python.org/issue1068268, signals must be masked
+        when this method is called.
+        """
         while 0 < len(self.tasks) and len(self.running) < self.limit:
             task = self.tasks.pop(0)
             self.running.append(task)
             task.start(self.taskcount, self.iomap, writer, self.askpass_socket)
             self.taskcount += 1
 
-    def check_tasks(self):
-        """Checks to see if any tasks have terminated."""
+    def reap_tasks(self):
+        """Checks to see if any tasks have terminated.
+
+        After cleaning up, returns the number of tasks that finished.
+        """
         still_running = []
+        finished_count = 0
         for task in self.running:
             if task.running():
                 still_running.append(task)
             else:
                 self.finished(task)
+                finished_count += 1
         self.running = still_running
+        return finished_count
 
     def check_timeout(self):
         """Kills timed-out processes and returns the lowest time left."""
