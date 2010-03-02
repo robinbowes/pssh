@@ -5,7 +5,7 @@ long_description = """PSSH (Parallel SSH) provides parallel versions of OpenSSH 
 
 setup(
     name = "pssh",
-    version = "2.1",
+    version = "2.1.1",
     author = "Andrew McNabb",
     author_email = "amcnabb@mcnabbs.org",
     url = "http://code.google.com/p/parallel-ssh/",
