@@ -82,7 +82,7 @@ class Manager(object):
             writer.join()
 
     def clear_sigchld_handler(self):
-        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
 
     def set_sigchld_handler(self):
         # TODO: find out whether set_wakeup_fd still works if the default
