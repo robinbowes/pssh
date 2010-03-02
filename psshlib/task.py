@@ -96,7 +96,11 @@ class Task(object):
     def _kill(self):
         """Signals the process to terminate."""
         if self.proc:
-            os.kill(-self.proc.pid, signal.SIGKILL)
+            try:
+                os.kill(-self.proc.pid, signal.SIGKILL)
+            except OSError:
+                # If the kill fails, then just assume the process is dead.
+                pass
             self.killed = True
 
     def timedout(self):
