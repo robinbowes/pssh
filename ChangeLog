@@ -1,3 +1,6 @@
+2010-02-26 Andrew McNabb <amcnabb at mcnabbs.org>
+	* Version 2.1.1
+	  - Fixed a problem causing PSSH to crash with Python 2.4.
 2010-02-24 Andrew McNabb <amcnabb at mcnabbs.org>
 	* Version 2.1
 	  - Added support for Python 3.0 and 3.1.  Although PSSH has only
