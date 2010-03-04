@@ -38,6 +38,7 @@ class Task(object):
         self.failures = []
         self.killed = False
         self.inputbuffer = stdin
+        self.byteswritten = 0
         self.outputbuffer = bytes()
         self.errorbuffer = bytes()
 
@@ -147,9 +148,10 @@ class Task(object):
     def handle_stdin(self, fd, iomap):
         """Called when the process's standard input is ready for writing."""
         try:
-            if self.inputbuffer:
-                bytes_written = os.write(fd, self.inputbuffer)
-                self.inputbuffer = self.inputbuffer[bytes_written:]
+            start = self.byteswritten
+            if start < len(self.inputbuffer):
+                chunk = self.inputbuffer[start:start+BUFFER_SIZE]
+                self.byteswritten = start + os.write(fd, chunk)
             else:
                 self.close_stdin(iomap)
         except (OSError, IOError):
