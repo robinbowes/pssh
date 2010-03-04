@@ -13,6 +13,7 @@ except ImportError:
     import Queue as queue
 
 from psshlib.askpass_server import PasswordServer
+from psshlib import psshutil
 
 READ_SIZE = 1 << 16
 
@@ -287,6 +288,7 @@ class Writer(threading.Thread):
 
             if data == self.OPEN:
                 self.files[filename] = open(filename, 'wb', buffering=1)
+                psshutil.set_cloexec(self.files[filename])
             else:
                 dest = self.files[filename]
                 if data == self.EOF:

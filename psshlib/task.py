@@ -80,9 +80,10 @@ class Task(object):
         if 'DISPLAY' not in environ:
             environ['DISPLAY'] = 'pssh-gibberish'
 
-        # Create the subprocess.
+        # Create the subprocess.  Since we carefully call set_cloexec() on
+        # all open files, we specify close_fds=False.
         self.proc = Popen(self.cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE,
-                close_fds=True, preexec_fn=os.setsid, env=environ)
+                close_fds=False, preexec_fn=os.setsid, env=environ)
         self.timestamp = time.time()
         if self.inputbuffer:
             self.stdin = self.proc.stdin

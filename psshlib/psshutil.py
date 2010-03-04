@@ -1,11 +1,13 @@
 # Copyright (c) 2009, Andrew McNabb
 # Copyright (c) 2003-2008, Brent N. Chun
 
+import fcntl
 import re
 import string
 import sys
 
 HOST_FORMAT = 'Host format is [user@]host[:port] [user]'
+
 
 def read_hosts(pathnames, default_user=None, default_port=None):
     """
@@ -53,6 +55,7 @@ def parse_line(line, default_user, default_port):
         user = default_user
     return host, port, user
 
+
 def parse_host(host, default_user=None, default_port=None):
     """Parses host entries of the form "[user@]host[:port]"."""
     # TODO: when we stop supporting Python 2.4, switch to using str.partition.
@@ -63,3 +66,12 @@ def parse_host(host, default_user=None, default_port=None):
     if ':' in host:
         host, port = host.rsplit(':', 1)
     return (host, port, user)
+
+
+def set_cloexec(filelike):
+    """Sets the underlying filedescriptor to automatically close on exec.
+
+    If set_cloexec is called for all open files, then subprocess.Popen does
+    not require the close_fds option.
+    """
+    fcntl.fcntl(filelike.fileno(), fcntl.FD_CLOEXEC, 1)
