@@ -6,6 +6,7 @@ import select
 import signal
 import sys
 import threading
+import time
 
 try:
     import queue
@@ -94,6 +95,7 @@ class Manager(object):
         """Apparently we need a sigchld handler to make set_wakeup_fd work."""
         # Write to the signal pipe (only for Python <2.5, where the
         # set_wakeup_fd method doesn't exist).
+        print time.ctime(), 'handling sigchld'
         if self.iomap.wakeup_writefd:
             os.write(self.iomap.wakeup_writefd, '\0')
         for task in self.running:
@@ -142,8 +144,10 @@ class Manager(object):
         finished_count = 0
         for task in self.running:
             if task.running():
+                print time.ctime(), 'task still running'
                 still_running.append(task)
             else:
+                print time.ctime(), 'task finished'
                 self.finished(task)
                 finished_count += 1
         self.running = still_running
@@ -226,8 +230,11 @@ class IOMap(object):
         rlist = list(self.readmap)
         wlist = list(self.writemap)
         try:
+            print time.ctime(), 'starting select'
             rlist, wlist, _ = select.select(rlist, wlist, [], timeout)
+            print time.ctime(), 'select finished'
         except select.error:
+            print time.ctime(), 'select interrupted'
             _, e, _ = sys.exc_info()
             errno, message = e.args
             if errno == EINTR:

@@ -80,8 +80,10 @@ class Task(object):
             environ['DISPLAY'] = 'pssh-gibberish'
 
         # Create the subprocess.
+        print time.ctime(), 'process starting'
         self.proc = Popen(self.cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE,
                 close_fds=True, preexec_fn=os.setsid, env=environ)
+        print time.ctime(), 'process started'
         self.timestamp = time.time()
         if self.inputbuffer:
             self.stdin = self.proc.stdin
@@ -186,6 +188,7 @@ class Task(object):
                 self.log_exception(e)
 
     def close_stdout(self, iomap):
+        print time.ctime(), 'closing stdout'
         if self.stdout:
             iomap.unregister(self.stdout.fileno())
             self.stdout.close()
@@ -212,6 +215,7 @@ class Task(object):
                 self.log_exception(e)
 
     def close_stderr(self, iomap):
+        print time.ctime(), 'closing stderr'
         if self.stderr:
             iomap.unregister(self.stderr.fileno())
             self.stderr.close()
