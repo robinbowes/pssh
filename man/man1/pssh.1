@@ -59,12 +59,172 @@ pssh \(em parallel ssh program
 .SH DESCRIPTION
 .PP
 .B pssh
-is...
+is a program for executing ssh in parallel on a number of hosts.  It provides
+features such as sending input to all of the processes, passing a password
+to ssh, saving output to files, and timing out.
 
 
 .SH OPTIONS
 
-Options go here.
+.TP
+.BI \-h " host_file"
+.PD 0
+.TP
+.BI \-\-hosts " host_file"
+Read hosts from the given
+.IR host_file .
+Lines in the host file are of the form
+.RI [ user @] host [: port ]
+and can include blank lines and comments (lines beginning with "#").
+If multiple host files are given (the
+.B \-h
+option is used more than once), then pssh behaves as though these files
+were concatenated together.
+If a host is specified specified multiple times, then pssh will connect the
+given number of times.
+
+.TP
+.B \-H
+.RI [ user @] host [: port ]
+.PD 0
+.TP
+.B \-\-host
+.RI [ user @] host [: port ]
+.PD 0
+.IP
+Add the given host to the list of hosts.  This option may be given multiple
+times and in conjunction with the
+.B \-h
+option.
+
+.TP
+.BI \-l " user"
+.PD 0
+.TP
+.BI \-\-user " user"
+Use the given username as the default for any host entries that don't
+specifically specify a user.
+
+.TP
+.BI \-p " parallelism"
+.PD 0
+.TP
+.BI \-\-par " parallelism"
+Use the given number as the maximum number of concurrent connections.
+
+.TP
+.BI \-t " timeout"
+.PD 0
+.TP
+.BI \-\-timeout " timeout"
+Make connections time out after the given number of seconds.
+
+.TP
+.BI \-o " outdir"
+.PD 0
+.TP
+.BI \-\-outdir " outdir"
+Save standard output to files in the given directory.  Filenames are of the
+form
+.RI [ user @] host [: port ][. num ]
+where the user and port are only included for hosts that explicitly
+specify them.  The number is a counter that is incremented each time for hosts
+that are specified more than once.
+
+.TP
+.BI \-e " errdir"
+.PD 0
+.TP
+.BI \-\-errdir " errdir"
+Save standard error to files in the given directory.  Filenames are of the
+same form as with the
+.B \-o
+option.
+
+.TP
+.BI \-x " args"
+.PD 0
+.TP
+.BI \-\-extra-args " args"
+Passes a extra SSH command-line arguments (see the
+.BR ssh (1) 
+man page for more information about SSH arguments).
+This option may be specified multiple times.
+The arguments are processed to split on whitespace, protect text within
+quotes, and escape with backslashes.
+To pass arguments without such processing, use the
+.B \-X
+option instead.
+
+.TP
+.BI \-X " arg"
+.PD 0
+.TP
+.BI \-\-extra-arg " arg"
+Passes a single SSH command-line argument (see the
+.BR ssh (1) 
+man page for more information about SSH arguments).  Unlike the
+.B \-x
+option, no processing is performed on the argument, including word splitting.
+To pass multiple command-line arguments, use the option once for each
+argument.
+
+.TP
+.BI \-O " options"
+.PD 0
+.TP
+.BI \-\-options " options"
+SSH options in the format used in the SSH configuration file (see the
+.BR ssh_config (5) 
+man page for more information).  This option may be specified multiple
+times.
+
+.TP
+.B \-A
+.PD 0
+.TP
+.B \-\-askpass
+Prompt for a password and pass it to ssh.  The password may be used for
+either to unlock a key or for password authentication.
+The password is transferred in a fairly secure manner (e.g., it will not show
+up in argument lists).  However, be aware that a root user on your system
+could potentially intercept the password.
+
+.TP
+.B \-i
+.PD 0
+.TP
+.B \-\-inline
+Display standard output and standard error as each host completes.
+
+.TP
+.B \-v
+.PD 0
+.TP
+.B \-\-verbose
+Include error messages from ssh with the
+.B \-i
+and
+.B \e
+options.
+
+.TP
+.B \-I
+.PD 0
+.TP
+.B \-\-send-input
+Read input and send to each ssh process.  Since ssh allows a command script to
+be sent on standard input, the
+.B \-I
+option may be used in lieu of the command argument.
+
+.TP
+.B \-P
+.PD 0
+.TP
+.B \-\-print
+Display output as it arrives.  This option is of limited usefulness because
+output from different hosts are interleaved.
 
 
 .SH EXAMPLE
@@ -74,11 +234,15 @@ Examples go here.
 
 .SH AUTHORS
 Written by
-Andrew McNabb <amcnabb@mcnabbs.org>
-and Brent N. Chun <bnc@theether.org>.  
+Brent N. Chun <bnc@theether.org> and
+Andrew McNabb <amcnabb@mcnabbs.org>.
 
 http://code.google.com/p/parallel-ssh/
 
 
 .SH SEE ALSO
-.BR ssh (1)
+.BR ssh (1),
+.BR pscp (1),
+.BR prsync (1),
+.BR pslurp (1),
+.BR pnuke (1)
