@@ -5,6 +5,8 @@ import optparse
 import os
 import pwd
 import shlex
+import sys
+import textwrap
 
 _DEFAULT_PARALLELISM = 32
 _DEFAULT_TIMEOUT     = -1 # "infinity" by default
@@ -76,6 +78,14 @@ def common_defaults(**kwargs):
 
     value = os.getenv('PSSH_HOSTS')
     if value:
+        message1 = ('Warning: the PSSH_HOSTS environment variable is '
+            'deprecated.  Please use the "-h" option instead, and consider '
+            'creating aliases for convenience.  For example:')
+        message2 = "    alias pssh_abc='pssh -h /path/to/hosts_abc'"
+        sys.stderr.write(textwrap.fill(message1))
+        sys.stderr.write('\n')
+        sys.stderr.write(message2)
+        sys.stderr.write('\n')
         defaults['host_files'] = [value]
 
     return defaults
