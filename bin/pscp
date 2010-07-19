@@ -52,7 +52,7 @@ def parse_args():
 
     return opts, args
 
-def do_pscp(hosts, locals, remote, opts):
+def do_pscp(hosts, localargs, remote, opts):
     if opts.outdir and not os.path.exists(opts.outdir):
         os.makedirs(opts.outdir)
     if opts.errdir and not os.path.exists(opts.errdir):
@@ -68,7 +68,7 @@ def do_pscp(hosts, locals, remote, opts):
             cmd.append('-r')
         if opts.extra:
             cmd.extend(opts.extra)
-        cmd.extend(locals)
+        cmd.extend(localargs)
         if user:
             cmd.append('%s@%s:%s' % (user, host, remote))
         else:
@@ -79,7 +79,7 @@ def do_pscp(hosts, locals, remote, opts):
 
 if __name__ == "__main__":
     opts, args = parse_args()
-    locals = args[0:-1]
+    localargs = args[0:-1]
     remote = args[-1]
     if not re.match("^/", remote):
         print("Remote path %s must be an absolute path" % remote)
@@ -88,4 +88,4 @@ if __name__ == "__main__":
     if opts.host_entries:
         for entry in opts.host_entries:
             hosts.append(psshutil.parse_host(entry, default_user=opts.user))
-    do_pscp(hosts, locals, remote, opts)
+    do_pscp(hosts, localargs, remote, opts)

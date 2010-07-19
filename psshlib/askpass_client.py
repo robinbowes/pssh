@@ -66,7 +66,7 @@ def askpass_main():
         sock.connect(address)
     except socket.error:
         _, e, _ = sys.exc_info()
-        number, message = e.args
+        message = e.args[1]
         sys.stderr.write("Couldn't bind to %s: %s.\n" % (address, message))
         sys.exit(2)
 

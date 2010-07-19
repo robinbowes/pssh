@@ -3,7 +3,6 @@
 
 import optparse
 import os
-import pwd
 import shlex
 import sys
 import textwrap

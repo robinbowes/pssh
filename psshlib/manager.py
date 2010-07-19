@@ -230,7 +230,7 @@ class IOMap(object):
             rlist, wlist, _ = select.select(rlist, wlist, [], timeout)
         except select.error:
             _, e, _ = sys.exc_info()
-            errno, message = e.args
+            errno = e.args[0]
             if errno == EINTR:
                 return
             else:

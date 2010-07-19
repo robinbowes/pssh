@@ -50,10 +50,10 @@ class PasswordServer(object):
 
     def handle_listen(self, fd, iomap):
         try:
-            conn, address = self.sock.accept()
+            conn = self.sock.accept()[0]
         except socket.error:
             _, e, _ = sys.exc_info()
-            number, string = e.args
+            number = e.args[0]
             if number == errno.EINTR:
                 return
             else:
@@ -72,7 +72,7 @@ class PasswordServer(object):
             bytes_written = conn.send(buffer)
         except socket.error:
             _, e, _ = sys.exc_info()
-            number, string = e.args
+            number = e.args[0]
             if number == errno.EINTR:
                 return
             else:
