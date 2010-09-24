@@ -73,7 +73,7 @@ def do_prsync(hosts, local, remote, opts):
         if port:
             ssh += ['-p', port]
         if opts.ssh_args:
-            ssh += opts.ssh_args
+            ssh += [opts.ssh_args]
 
         cmd = ['rsync', '-e', ' '.join(ssh)]
         if opts.verbose:
